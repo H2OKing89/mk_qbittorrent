@@ -5,7 +5,6 @@ A modular, user-friendly application for creating torrents using qBittorrent API
 ## Features
 
 - **🌐 Web Interface** - Modern, responsive web UI perfect for headless systems
-- **🖥️ Desktop GUI** - Native desktop interface using tkinter
 - **⌨️ Command Line** - Full CLI support for automation
 - **🔒 Secure Configuration** - Environment variable support for sensitive data
 - **📁 Smart Folder Browser** - Intuitive file/folder selection
@@ -23,14 +22,7 @@ pip install fastapi uvicorn jinja2 python-multipart
 # Start web server
 python main.py --web
 
-# Open browser to http://localhost:8000
-```
-
-### Desktop GUI
-
-```bash
-# For systems with display
-python main.py --gui
+# Open browser to http://localhost:8094
 ```
 
 ### Command Line
@@ -88,7 +80,6 @@ torrent_creation:
 │   │   ├── app.py
 │   │   ├── templates/
 │   │   └── static/
-│   ├── gui/                # Desktop GUI
 │   ├── cli/                # Command line interface
 │   └── utils/              # Shared utilities
 ├── config/
@@ -147,12 +138,6 @@ python main.py --verbose --web
 4. **Strong Passwords** - Use secure qBittorrent credentials
 
 ## Troubleshooting
-
-### "tkinter not found" Error
-```bash
-# Use web interface instead
-python main.py --web
-```
 
 ### "Web mode not available" Error
 ```bash

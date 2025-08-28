@@ -3,7 +3,7 @@
 Torrent Creator - Easy to use torrent creation application
 Using qBittorrent API for seamless torrent creation and management
 
-Main entry point for the application
+Main entry point for the application - Headless/Web-focused version
 """
 import sys
 import asyncio
@@ -13,7 +13,6 @@ from pathlib import Path
 # Add the current directory to the path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.gui.main_window import TorrentCreatorApp
 from src.cli.commands import CLIHandler
 from src.core.config_manager import ConfigManager
 from src.utils.logging_setup import setup_logging
@@ -22,38 +21,27 @@ from src.utils.logging_setup import setup_logging
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="Easy Torrent Creator - Create torrents with qBittorrent",
+        description="Easy Torrent Creator - Create torrents with qBittorrent (Headless/Web-focused)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                           # Start GUI mode
+  %(prog)s                           # Start web interface (default)
   %(prog)s --cli /path/to/folder     # CLI mode - create torrent from folder
-  %(prog)s --gui                     # Explicitly start GUI mode
-  %(prog)s --config                  # Open configuration GUI
+  %(prog)s --web                     # Explicitly start web interface
         """
     )
     
     # Mode selection
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument(
-        '--gui', 
+        '--web', 
         action='store_true', 
-        help='Start GUI mode (default)'
+        help='Start web interface (default)'
     )
     mode_group.add_argument(
         '--cli', 
         metavar='PATH',
         help='CLI mode - create torrent from specified path'
-    )
-    mode_group.add_argument(
-        '--web', 
-        action='store_true',
-        help='Start web interface mode'
-    )
-    mode_group.add_argument(
-        '--config', 
-        action='store_true',
-        help='Open configuration GUI'
     )
     
     # Web mode options
@@ -111,17 +99,26 @@ async def main():
     # Load configuration
     config_manager = ConfigManager(args.config_file)
     
-    # Handle web mode separately since it manages its own event loop
-    if args.web:
-        try:
-            import uvicorn
-            from src.core.config_manager import ConfigManager
+    try:
+        if args.cli:
+            # CLI Mode
+            cli_handler = CLIHandler(config_manager)
+            await cli_handler.create_torrent(
+                source_path=args.cli,
+                output_dir=args.output,
+                private=args.private,
+                start_seeding=args.start_seeding
+            )
+        else:
+            # Default to web mode (no GUI)
+            print("❌ No mode specified. Starting web interface...")
+            print("💡 Use --cli for command line mode")
+            print("💡 Use --web to explicitly start web interface")
             
-            # Load configuration for web server settings
-            config_manager = ConfigManager()
+            # Start web mode
+            import uvicorn
             config = config_manager.get_config()
             
-            # Use config values, but allow command line overrides
             host = args.host if args.host != '0.0.0.0' else config.web_server.host
             port = args.port if args.port != 8094 else config.web_server.port
             
@@ -136,40 +133,6 @@ async def main():
                 reload=False,
                 access_log=True
             )
-            return
-        except ImportError as e:
-            print(f"❌ Web mode not available: {e}")
-            print("💡 Install web dependencies: pip install fastapi uvicorn jinja2")
-            sys.exit(1)
-    
-    try:
-        if args.cli:
-            # CLI Mode
-            cli_handler = CLIHandler(config_manager)
-            await cli_handler.create_torrent(
-                source_path=args.cli,
-                output_dir=args.output,
-                private=args.private,
-                start_seeding=args.start_seeding
-            )
-        
-        elif args.config:
-            # Configuration GUI
-            from src.gui.config_window import ConfigWindow
-            app = ConfigWindow(config_manager)
-            app.run()
-        
-        else:
-            # GUI Mode (default)
-            try:
-                app = TorrentCreatorApp(config_manager)
-                await app.run()
-            except Exception as e:
-                if "tkinter" in str(e).lower():
-                    print("❌ GUI mode not available (tkinter not found)")
-                    print("💡 For headless systems, use: python main.py --web")
-                    sys.exit(1)
-                raise
             
     except KeyboardInterrupt:
         print("\nOperation cancelled by user")
@@ -184,15 +147,13 @@ if __name__ == "__main__":
         # Windows specific event loop policy
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     
-    # Parse args first to check if web mode
     args = parse_arguments()
     
-    if args.web:
-        # Web mode - run directly without asyncio.run
+    # Handle web mode specially since uvicorn manages its own event loop
+    if args.web or (not args.cli):
+        # Web mode (explicit or default)
         try:
             import uvicorn
-            from src.utils.logging_setup import setup_logging
-            from src.core.config_manager import ConfigManager
             
             setup_logging(verbose=args.verbose)
             config_manager = ConfigManager(args.config_file)
@@ -223,5 +184,5 @@ if __name__ == "__main__":
             print(f"Error starting web server: {e}")
             sys.exit(1)
     else:
-        # All other modes use async
+        # CLI mode - use asyncio
         asyncio.run(main())
