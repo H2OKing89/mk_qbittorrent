@@ -1,6 +1,6 @@
 # qBittorrent API for Python — `qBittorrent_api_python.md`
 
-> A GitHub-ready overview of the `qbittorrent-api` Python package: what it supports, how to install it, how to use it (both the one-to-one endpoint calls and the ergonomic namespaces), configuration knobs, performance tips, exceptions, and an async-friendly pattern. If qBittorrent is the engine, this client is your well-labeled dashboard.
+> A overview of the `qbittorrent-api` Python package: what it supports, how to install it, how to use it (both the one-to-one endpoint calls and the ergonomic namespaces), configuration knobs, performance tips, exceptions, and an async-friendly pattern. If qBittorrent is the engine, this client is your well-labeled dashboard.
 
 <details>
 <summary><strong>Table of Contents</strong></summary>

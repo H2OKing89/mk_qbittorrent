@@ -1,6 +1,6 @@
 # qBittorrent Client (Python) — `qBittorrent_api_client.md`
 
-> A practical, GitHub-friendly guide to the `qbittorrent-api` **Client**: constructor options, connection patterns, performance knobs, version/compat checks, session lifecycle, and battle-tested recipes (timeouts, proxies, reverse proxies, headers). Everything here is safe to paste into your repo’s docs.
+> A practical, guide to the `qbittorrent-api` **Client**: constructor options, connection patterns, performance knobs, version/compat checks, session lifecycle, and battle-tested recipes (timeouts, proxies, reverse proxies, headers). Everything here is safe to paste into your repo’s docs.
 
 <p align="center">
   <a href="https://pypi.org/project/qbittorrent-api/"><img alt="qbittorrent-api" src="https://img.shields.io/pypi/v/qbittorrent-api.svg"></a>
