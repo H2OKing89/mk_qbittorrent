@@ -38,13 +38,17 @@ class QBittorrentConfig:
     verify_tls: bool = True
     auth: Optional[Dict[str, Any]] = None
     
+    # Connection timeouts and performance (aligned with documentation best practices)
+    connection_timeout: float = 10.0  # Connect timeout in seconds
+    read_timeout: float = 30.0        # Read timeout in seconds
+    pool_connections: int = 10        # HTTP connection pool size
+    pool_maxsize: int = 10           # HTTP connection pool max size
+    
     # qBittorrent behavior
     category: str = "torrents"
     save_path: str = "/downloads"
     auto_add_after_creation: bool = True
     auto_torrent_management: bool = False
-    connection_timeout: float = 10.0
-    read_timeout: float = 30.0
     tags: Optional[List[str]] = None
     trackers: Optional[List[str]] = None
     docker_path_mapping: Optional[Dict[str, str]] = None

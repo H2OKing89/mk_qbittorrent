@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 import qbittorrentapi
 from qbittorrentapi.torrentcreator import TaskStatus
+from qbittorrentapi import exceptions as qba_exc
 
 from ..core.config_manager import AppConfig
 from ..utils.credential_manager import CredentialManager
@@ -39,6 +40,25 @@ class TorrentManager:
         print(f"DEBUG: Final docker_mapping passed to DockerPathMapper: {docker_mapping}")
         self._path_mapper = DockerPathMapper(docker_mapping)
     
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit - cleanup resources"""
+        await self.cleanup()
+    
+    async def cleanup(self):
+        """Clean up resources, including qBittorrent client session"""
+        if self._qbit_client:
+            try:
+                self._qbit_client.auth_log_out()
+                print("🧹 Logged out from qBittorrent session")
+            except Exception as e:
+                print(f"Warning: Error during qBittorrent logout: {e}")
+            finally:
+                self._qbit_client = None
+    
     async def _get_qbit_client(self):
         """Get or create qBittorrent client instance"""
         if self._qbit_client is None:
@@ -59,18 +79,48 @@ class TorrentManager:
                 
                 print(f"Connecting to qBittorrent at {qbit_url} with user: {username}")
                 
-                # Create client instance
+                # Create client instance with production-ready configuration
                 verify_tls = getattr(qbit_config, 'verify_tls', True)
+                connection_timeout = getattr(qbit_config, 'connection_timeout', 10.0)
+                read_timeout = getattr(qbit_config, 'read_timeout', 30.0)
+                pool_connections = getattr(qbit_config, 'pool_connections', 10)
+                pool_maxsize = getattr(qbit_config, 'pool_maxsize', 10)
+                
                 self._qbit_client = qbittorrentapi.Client(
                     host=qbit_url,
                     username=username,
                     password=password,
-                    VERIFY_WEBUI_CERTIFICATE=verify_tls
+                    VERIFY_WEBUI_CERTIFICATE=verify_tls,
+                    # Production best practices from documentation
+                    REQUESTS_ARGS={
+                        "timeout": (connection_timeout, read_timeout),  # (connect, read) timeouts
+                    },
+                    HTTPADAPTER_ARGS={
+                        "pool_connections": pool_connections,
+                        "pool_maxsize": pool_maxsize,
+                    },
+                    RAISE_NOTIMPLEMENTEDERROR_FOR_UNIMPLEMENTED_API_ENDPOINTS=True,
+                    RAISE_ERROR_FOR_UNSUPPORTED_QBITTORRENT_VERSIONS=False,
+                    DISABLE_LOGGING_DEBUG_OUTPUT=True,  # Reduce debug noise
                 )
                 
-                # Test connection
-                self._qbit_client.auth_log_in()
-                print("✅ Successfully authenticated with qBittorrent")
+                # Test connection with proper exception handling
+                try:
+                    self._qbit_client.auth_log_in()
+                    print("✅ Successfully authenticated with qBittorrent")
+                except qba_exc.LoginFailed:
+                    raise Exception("❌ Authentication failed. Please check your qBittorrent credentials.")
+                except qba_exc.Forbidden403Error:
+                    raise Exception("❌ IP address is banned from qBittorrent due to failed authentication attempts. Please wait or restart qBittorrent.")
+                except qba_exc.Unauthorized401Error:
+                    raise Exception("❌ Unauthorized. Please check your qBittorrent credentials and ensure Web UI is enabled.")
+                except qba_exc.APIConnectionError as e:
+                    raise Exception(f"❌ Cannot connect to qBittorrent Web UI at {qbit_url}. Error: {e}")
+                
+            except qba_exc.APIConnectionError as e:
+                print(f"Connection error to qBittorrent: {e}")
+                self._qbit_client = None
+                raise Exception(f"Failed to connect to qBittorrent Web UI at {qbit_url}: {e}")
                 
             except Exception as e:
                 print(f"Failed to connect to qBittorrent: {e}")
@@ -160,14 +210,19 @@ class TorrentManager:
             
             return True, message
             
+        except qba_exc.LoginFailed:
+            return False, "❌ Authentication failed. Please check your qBittorrent credentials."
+        except qba_exc.Forbidden403Error:
+            return False, "❌ IP address is banned from qBittorrent due to failed authentication attempts. Please wait or restart qBittorrent."
+        except qba_exc.Unauthorized401Error:
+            return False, "❌ Unauthorized. Please check your qBittorrent credentials and ensure Web UI is enabled."
+        except qba_exc.APIConnectionError as e:
+            return False, f"❌ Cannot connect to qBittorrent Web UI. Error: {e}"
+        except qba_exc.UnsupportedQbittorrentVersion as e:
+            return False, f"❌ qBittorrent version not supported by client library: {e}"
         except Exception as e:
             error_msg = str(e)
-            if "Unauthorized" in error_msg or "401" in error_msg:
-                return False, f"❌ Authentication failed. Please check your qBittorrent credentials."
-            elif "Forbidden" in error_msg or "IP address is banned" in error_msg:
-                return False, f"❌ IP address is banned from qBittorrent due to failed authentication attempts. Please wait or restart qBittorrent."
-            else:
-                return False, f"Connection failed: {error_msg}"
+            return False, f"Connection failed: {error_msg}"
     
     async def create_torrent(
         self,
@@ -356,14 +411,32 @@ class TorrentManager:
                         trackers=final_trackers if final_trackers else None,
                         url_seeds=final_url_seeds if final_url_seeds else None
                     )
+            except qba_exc.Conflict409Error:
+                return {
+                    "success": False,
+                    "error": "Too many torrent creation tasks running. Please wait for existing tasks to complete.",
+                    "message": "qBittorrent is busy with other torrent creation tasks. Try again in a moment."
+                }
+            except qba_exc.NotFound404Error:
+                return {
+                    "success": False,
+                    "error": f"Source path not found: {container_source_path}",
+                    "message": f"qBittorrent cannot access the source path: {container_source_path}"
+                }
             except Exception as e:
                 print(f"Failed to create torrent task: {e}")
-                # Try with minimal parameters
+                # Try with minimal parameters as fallback
                 print("Trying with minimal parameters...")
                 try:
                     task = client.torrentcreator.add_task(
                         source_path=container_source_path
                     )
+                except qba_exc.Conflict409Error:
+                    return {
+                        "success": False,
+                        "error": "Too many torrent creation tasks running. Please wait for existing tasks to complete.",
+                        "message": "qBittorrent is busy with other torrent creation tasks. Try again in a moment."
+                    }
                 except Exception as e2:
                     return {
                         "success": False,
@@ -444,7 +517,11 @@ class TorrentManager:
                             torrent_hash = "unknown"
                     
                     # Clean up task using the correct API method
-                    task.delete()
+                    try:
+                        task.delete()
+                        print(f"🧹 Cleaned up torrent creation task {task_id}")
+                    except Exception as cleanup_error:
+                        print(f"Warning: Could not cleanup task {task_id}: {cleanup_error}")
                     
                     return {
                         "success": True,
@@ -462,7 +539,11 @@ class TorrentManager:
                     print(f"Task failed with error: {error_msg}")
                     print(f"Full status object: {status}")
                     
-                    task.delete()
+                    try:
+                        task.delete()
+                        print(f"🧹 Cleaned up failed task {task_id}")
+                    except Exception as cleanup_error:
+                        print(f"Warning: Could not cleanup failed task {task_id}: {cleanup_error}")
                     
                     return {
                         "success": False,
@@ -472,10 +553,12 @@ class TorrentManager:
                     }
             
             # Timeout reached
+            print(f"⏰ Torrent creation timed out after {max_wait_time} seconds")
             try:
                 task.delete()
-            except:
-                pass  # Task might already be gone
+                print(f"🧹 Cleaned up timed-out task {task_id}")
+            except Exception as cleanup_error:
+                print(f"Warning: Could not cleanup timed-out task {task_id}: {cleanup_error}")
                 
             return {
                 "success": False,
@@ -490,4 +573,108 @@ class TorrentManager:
                 "success": False,
                 "error": f"Torrent creation failed: {error_msg}",
                 "message": f"Could not create torrent for {source_path}"
+            }
+    
+    async def get_torrent_file_bytes(self, task_id: str) -> Optional[bytes]:
+        """
+        Retrieve .torrent file bytes for a completed task
+        
+        Args:
+            task_id: The task ID from torrent creation
+            
+        Returns:
+            Torrent file bytes if successful, None otherwise
+        """
+        try:
+            client = await self._get_qbit_client()
+            torrent_bytes = client.torrentcreator.torrent_file(task_id=task_id)
+            return torrent_bytes
+        except qba_exc.Conflict409Error:
+            print(f"Task {task_id} not yet finished or failed")
+            return None
+        except qba_exc.NotFound404Error:
+            print(f"Task {task_id} not found")
+            return None
+        except Exception as e:
+            print(f"Error retrieving torrent file bytes: {e}")
+            return None
+    
+    async def get_torrent_creation_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get status of a torrent creation task
+        
+        Args:
+            task_id: The task ID from torrent creation
+            
+        Returns:
+            Dictionary with task status information
+        """
+        try:
+            client = await self._get_qbit_client()
+            status_list = client.torrentcreator.status(task_id=task_id)
+            
+            if status_list and len(status_list) > 0:
+                status = status_list[0]
+                return {
+                    "task_id": task_id,
+                    "status": status.status,
+                    "progress": getattr(status, 'progress', 0),
+                    "error_message": getattr(status, 'errorMessage', ''),
+                }
+            else:
+                return None
+                
+        except qba_exc.NotFound404Error:
+            print(f"Task {task_id} not found")
+            return None
+        except Exception as e:
+            print(f"Error getting task status: {e}")
+            return None
+    
+    async def get_qbittorrent_info(self) -> Dict[str, Any]:
+        """
+        Get qBittorrent application information for monitoring
+        
+        Returns:
+            Dictionary with version and build information
+        """
+        try:
+            client = await self._get_qbit_client()
+            
+            # Get version information
+            version = client.app.version
+            web_api_version = client.app.web_api_version
+            
+            # Get build info if available
+            try:
+                build_info = client.app.build_info
+            except Exception:
+                build_info = {}
+            
+            # Get preferences (limited subset for monitoring)
+            try:
+                prefs = client.app.preferences
+                monitoring_prefs = {
+                    "web_ui_port": prefs.get("web_ui_port"),
+                    "web_ui_https_enabled": prefs.get("web_ui_https_enabled"),
+                    "dht": prefs.get("dht"),
+                    "pex": prefs.get("pex"),
+                    "lsd": prefs.get("lsd"),
+                }
+            except Exception:
+                monitoring_prefs = {}
+            
+            return {
+                "version": version,
+                "web_api_version": web_api_version,
+                "build_info": build_info,
+                "preferences": monitoring_prefs,
+                "torrent_creator_supported": True,  # We already validated this
+            }
+            
+        except Exception as e:
+            print(f"Error getting qBittorrent info: {e}")
+            return {
+                "error": str(e),
+                "torrent_creator_supported": False,
             }

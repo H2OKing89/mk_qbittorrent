@@ -5,20 +5,36 @@ qbittorrent:
   auto_add_after_creation: true
   auto_torrent_management: true
   category: upload.audiobooks
-  connection_timeout: 10.0
+  
+  # Connection settings with production best practices
+  connection_timeout: 10.0    # Connect timeout (seconds)
+  read_timeout: 30.0         # Read timeout (seconds)
+  pool_connections: 10       # HTTP connection pool size
+  pool_maxsize: 10          # HTTP connection pool max size
+  
+  # Docker path mapping for container environments
   docker_path_mapping:
     /mnt/user/data: /data
+  
+  # qBittorrent server details
   host: 10.1.60.2
-  max_tag_length: 50
-  password: ${QBIT_PASSWORD}
   port: 8083
-  read_timeout: 30.0
+  use_https: false
+  base_path: ""             # For reverse proxy setups
+  verify_tls: true
+  
+  # Authentication (using credential manager)
+  password: ${QBIT_PASSWORD}
+  username: ${QBIT_USERNAME}
+  
+  # Torrent management settings
+  max_tag_length: 50
   save_path: /data/downloads/torrents/qbittorrent/seedvault/audiobooks
   tags:
   - Uploaded:H2OKing
   trackers:
   - ${TRACKER}
-  username: ${QBIT_USERNAME}
+
 remember_last_folder: true
 torrent_creation:
   comment: Created with Easy Torrent Creator
