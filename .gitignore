@@ -3,3 +3,5 @@ log/
 *.log
 __pycache__/
 __init__.py
+.credentials
+.credentials.credentials.bak
