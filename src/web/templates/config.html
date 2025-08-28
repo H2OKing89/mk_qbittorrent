@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - Easy Torrent Creator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        .config-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            border: 1px solid #f3f4f6;
+        }
+        .config-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        .input {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            transition: all 0.2s;
+        }
+        .input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: #f9fafb;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        .checkbox-item:hover {
+            background: #eff6ff;
+            border-color: #93c5fd;
+        }
+        .section-header {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .accent-blue { background: #3b82f6; }
+        .accent-blue:hover { background: #2563eb; }
+        .accent-green { background: #10b981; }
+        .accent-green:hover { background: #059669; }
+        .accent-purple { background: #8b5cf6; }
+        .accent-purple:hover { background: #7c3aed; }
+        .accent-orange { background: #f59e0b; }
+        .accent-orange:hover { background: #d97706; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <div x-data="configManager()" x-cloak class="container mx-auto px-4 py-6 max-w-7xl">
+        
+        <!-- Header -->
+        <div class="config-card gradient-bg text-white mb-8">
+            <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center">
+                <div>
+                    <h1 class="text-3xl font-bold mb-2">⚙️ Easy Torrent Creator</h1>
+                    <p class="text-blue-100 text-lg">Complete Configuration Management</p>
+                </div>
+                <div class="flex flex-wrap gap-3 mt-4 lg:mt-0">
+                    <button @click="testConnection()" 
+                            :disabled="isLoading"
+                            class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-6 py-3 rounded-lg disabled:opacity-50 transition-all">
+                        🔗 Test Connection
+                    </button>
+                    <a href="/" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-6 py-3 rounded-lg transition-all">
+                        🏠 Back to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div x-show="connectionStatus" 
+             :class="connectionSuccess ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-800'"
+             class="border-2 rounded-xl p-4 mb-6">
+            <div class="flex items-center">
+                <span x-show="connectionSuccess" class="text-green-600 text-xl">✅</span>
+                <span x-show="!connectionSuccess" class="text-red-600 text-xl">❌</span>
+                <span x-text="connectionMessage" class="ml-3 font-medium"></span>
+            </div>
+        </div>
+
+        <!-- Configuration Tabs -->
+        <div class="mb-8">
+            <div class="flex flex-wrap border-b border-gray-200">
+                <button @click="activeTab = 'connection'" 
+                        :class="activeTab === 'connection' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                        class="px-6 py-3 border-b-2 font-medium text-sm transition-colors hover:text-blue-600">
+                    🌐 Connection
+                </button>
+                <button @click="activeTab = 'torrent'" 
+                        :class="activeTab === 'torrent' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                        class="px-6 py-3 border-b-2 font-medium text-sm transition-colors hover:text-blue-600">
+                    📦 Torrent Settings
+                </button>
+                <button @click="activeTab = 'paths'" 
+                        :class="activeTab === 'paths' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                        class="px-6 py-3 border-b-2 font-medium text-sm transition-colors hover:text-blue-600">
+                    📁 Paths & Docker
+                </button>
+                <button @click="activeTab = 'security'" 
+                        :class="activeTab === 'security' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                        class="px-6 py-3 border-b-2 font-medium text-sm transition-colors hover:text-blue-600">
+                    🔐 Security
+                </button>
+                <button @click="activeTab = 'advanced'" 
+                        :class="activeTab === 'advanced' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                        class="px-6 py-3 border-b-2 font-medium text-sm transition-colors hover:text-blue-600">
+                    ⚡ Advanced
+                </button>
+            </div>
+        </div>
+
+        <!-- Connection Tab -->
+        <div x-show="activeTab === 'connection'" class="space-y-8">
+            
+            <!-- qBittorrent Connection -->
+            <div class="config-card">
+                <h2 class="section-header">🌐 qBittorrent Connection</h2>
+                
+                <div class="config-section">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label class="label">Host</label>
+                            <input x-model="config.qbittorrent.host" 
+                                   type="text" 
+                                   class="input"
+                                   placeholder="10.1.60.2">
+                        </div>
+                        
+                        <div class="input-group">
+                            <label class="label">Port</label>
+                            <input x-model="config.qbittorrent.port" 
+                                   type="number" 
+                                   class="input"
+                                   placeholder="8083">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label class="label">Username</label>
+                            <div class="relative">
+                                <input x-model="config.qbittorrent.username" 
+                                       type="text" 
+                                       class="input pr-32"
+                                       placeholder="admin or ${QBIT_USERNAME}">
+                                <div class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs">
+                                    <span x-show="credentialDetails.QBIT_USERNAME?.exists" 
+                                          class="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
+                                        🔒 Secured
+                                    </span>
+                                    <span x-show="!credentialDetails.QBIT_USERNAME?.exists" 
+                                          class="bg-orange-100 text-orange-800 px-2 py-1 rounded font-medium">
+                                        📝 Manual
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500">Use ${QBIT_USERNAME} to reference secure credential</p>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label class="label">Password</label>
+                            <div class="relative">
+                                <input x-model="config.qbittorrent.password" 
+                                       type="password" 
+                                       class="input pr-32"
+                                       placeholder="password or ${QBIT_PASSWORD}">
+                                <div class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs">
+                                    <span x-show="credentialDetails.QBIT_PASSWORD?.exists" 
+                                          class="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
+                                        🔒 Secured
+                                    </span>
+                                    <span x-show="!credentialDetails.QBIT_PASSWORD?.exists" 
+                                          class="bg-orange-100 text-orange-800 px-2 py-1 rounded font-medium">
+                                        📝 Manual
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500">Use ${QBIT_PASSWORD} to reference secure credential</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Credential Setup -->
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h4 class="font-medium text-blue-900 mb-3">� Quick Secure Setup</h4>
+                        <p class="text-sm text-blue-700 mb-3">
+                            To use secure encrypted storage instead of plain text, go to the <strong>Security tab</strong> to store your credentials, then use the variable references above.
+                        </p>
+                        <div class="flex gap-2">
+                            <button @click="activeTab = 'security'" 
+                                    class="text-sm bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                                🔐 Manage Secure Credentials
+                            </button>
+                            <button @click="autoSetCredentialReferences()" 
+                                    class="text-sm bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                                � Auto-Set References
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection Timeouts -->
+            <div class="config-card">
+                <h2 class="section-header">⏱️ Connection Timeouts</h2>
+                
+                <div class="config-section">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label class="label">Connection Timeout (seconds)</label>
+                            <input x-model="config.qbittorrent.connection_timeout" 
+                                   type="number" 
+                                   step="0.1"
+                                   class="input"
+                                   placeholder="10.0">
+                            <p class="text-xs text-gray-500">Time to wait for initial connection</p>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label class="label">Read Timeout (seconds)</label>
+                            <input x-model="config.qbittorrent.read_timeout" 
+                                   type="number" 
+                                   step="0.1"
+                                   class="input"
+                                   placeholder="30.0">
+                            <p class="text-xs text-gray-500">Time to wait for server response</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Torrent Settings Tab -->
+        <div x-show="activeTab === 'torrent'" class="grid lg:grid-cols-2 gap-8">
+            
+            <!-- Basic Torrent Settings -->
+            <div class="config-card">
+                <h2 class="section-header">📦 Basic Torrent Settings</h2>
+                
+                <div class="config-section">
+                    <div class="input-group">
+                        <label class="label">Torrent Format</label>
+                        <select x-model="config.torrent_creation.format" class="input">
+                            <option value="v1">v1 (Classic)</option>
+                            <option value="v2">v2 (Modern)</option>
+                            <option value="hybrid">Hybrid (v1 + v2)</option>
+                        </select>
+                        <p class="text-xs text-gray-500">v2 is recommended for new torrents</p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="label">Piece Size</label>
+                        <select x-model="config.torrent_creation.piece_size" class="input">
+                            <option value="">Auto (Recommended)</option>
+                            <option value="16">16 KB</option>
+                            <option value="32">32 KB</option>
+                            <option value="64">64 KB</option>
+                            <option value="128">128 KB</option>
+                            <option value="256">256 KB</option>
+                            <option value="512">512 KB</option>
+                            <option value="1024">1 MB</option>
+                            <option value="2048">2 MB</option>
+                            <option value="4096">4 MB</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="label">Comment</label>
+                        <input x-model="config.torrent_creation.comment" 
+                               type="text" 
+                               class="input"
+                               placeholder="Created with Easy Torrent Creator">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Torrent Behavior -->
+            <div class="config-card">
+                <h2 class="section-header">🎯 Torrent Behavior</h2>
+                
+                <div class="config-section">
+                    <div class="checkbox-item">
+                        <input x-model="config.torrent_creation.private" 
+                               type="checkbox" 
+                               class="rounded border-gray-300 text-blue-600">
+                        <div>
+                            <span class="font-medium">🔒 Private Torrents</span>
+                            <p class="text-xs text-gray-500">Restrict to specific trackers only</p>
+                        </div>
+                    </div>
+                    
+                    <div class="checkbox-item">
+                        <input x-model="config.torrent_creation.start_seeding" 
+                               type="checkbox" 
+                               class="rounded border-gray-300 text-blue-600">
+                        <div>
+                            <span class="font-medium">🌱 Auto-Start Seeding</span>
+                            <p class="text-xs text-gray-500">Begin seeding immediately after creation</p>
+                        </div>
+                    </div>
+                    
+                    <div class="checkbox-item">
+                        <input x-model="config.torrent_creation.optimize_alignment" 
+                               type="checkbox" 
+                               class="rounded border-gray-300 text-blue-600">
+                        <div>
+                            <span class="font-medium">⚡ Optimize Alignment</span>
+                            <p class="text-xs text-gray-500">Better performance for file boundaries</p>
+                        </div>
+                    </div>
+                    
+                    <div class="checkbox-item">
+                        <input x-model="config.qbittorrent.auto_add_after_creation" 
+                               type="checkbox" 
+                               class="rounded border-gray-300 text-blue-600">
+                        <div>
+                            <span class="font-medium">📥 Auto-Add to qBittorrent</span>
+                            <p class="text-xs text-gray-500">Automatically add torrents after creation</p>
+                        </div>
+                    </div>
+                    
+                    <div class="checkbox-item">
+                        <input x-model="config.qbittorrent.auto_torrent_management" 
+                               type="checkbox" 
+                               class="rounded border-gray-300 text-blue-600">
+                        <div>
+                            <span class="font-medium">🤖 Auto Torrent Management</span>
+                            <p class="text-xs text-gray-500">Let qBittorrent manage torrent paths</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Categories and Tags -->
+            <div class="config-card lg:col-span-2">
+                <h2 class="section-header">🏷️ Organization & Metadata</h2>
+                
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <div class="config-section">
+                        <div class="input-group">
+                            <label class="label">Category</label>
+                            <input x-model="config.qbittorrent.category" 
+                                   type="text" 
+                                   class="input"
+                                   placeholder="upload.audiobooks">
+                            <p class="text-xs text-gray-500">qBittorrent category for organization</p>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label class="label">Tags (comma-separated)</label>
+                            <input x-model="tagsInput" 
+                                   type="text" 
+                                   class="input"
+                                   placeholder="Uploaded:H2OKing, Custom:Tag">
+                            <p class="text-xs text-gray-500">Tags for filtering and organization</p>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <div class="input-group">
+                            <label class="label">Save Path</label>
+                            <input x-model="config.qbittorrent.save_path" 
+                                   type="text" 
+                                   class="input"
+                                   placeholder="/data/downloads/torrents/qbittorrent/seedvault/audiobooks">
+                            <p class="text-xs text-gray-500">Default download location in qBittorrent</p>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label class="label">Max Tag Length</label>
+                            <input x-model="config.qbittorrent.max_tag_length" 
+                                   type="number" 
+                                   class="input"
+                                   placeholder="50">
+                            <p class="text-xs text-gray-500">Maximum characters per tag</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Paths & Docker Tab -->
+        <div x-show="activeTab === 'paths'" class="grid lg:grid-cols-2 gap-8">
+            
+            <!-- Application Paths -->
+            <div class="config-card">
+                <h2 class="section-header">📁 Application Paths</h2>
+                
+                <div class="config-section">
+                    <div class="input-group">
+                        <label class="label">Default Output Directory</label>
+                        <input x-model="config.default_output_dir" 
+                               type="text" 
+                               class="input"
+                               placeholder="./torrents">
+                        <p class="text-xs text-gray-500">Where .torrent files are saved locally</p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="label">Default Upload Root</label>
+                        <input x-model="config.default_upload_root" 
+                               type="text" 
+                               class="input"
+                               placeholder="/mnt/user/data/downloads/torrents/qbittorrent/seedvault/">
+                        <p class="text-xs text-gray-500">Quick access button will navigate to this folder</p>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div class="checkbox-item">
+                            <input x-model="config.remember_last_folder" 
+                                   type="checkbox" 
+                                   class="rounded border-gray-300 text-blue-600">
+                            <div>
+                                <span class="font-medium">💾 Remember Last Folder</span>
+                                <p class="text-xs text-gray-500">Remember the last selected folder</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checkbox-item">
+                            <input x-model="config.auto_open_output_folder" 
+                                   type="checkbox" 
+                                   class="rounded border-gray-300 text-blue-600">
+                            <div>
+                                <span class="font-medium">📂 Auto-Open Output Folder</span>
+                                <p class="text-xs text-gray-500">Open output folder after torrent creation</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Docker Path Mapping -->
+            <div class="config-card">
+                <h2 class="section-header">🐳 Docker Path Mapping</h2>
+                
+                <div class="config-section">
+                    <div class="checkbox-item">
+                        <input x-model="config.docker_mapping.enabled" 
+                               type="checkbox" 
+                               class="rounded border-gray-300 text-blue-600">
+                        <div>
+                            <span class="font-medium">Enable Docker Mapping</span>
+                            <p class="text-xs text-gray-500">Map host paths to container paths</p>
+                        </div>
+                    </div>
+                    
+                    <div x-show="config.docker_mapping.enabled" class="mt-4">
+                        <div class="space-y-3">
+                            <template x-for="(mapping, index) in dockerMappings" :key="index">
+                                <div class="flex gap-2 items-center">
+                                    <input x-model="mapping.host" 
+                                           type="text" 
+                                           class="input flex-1"
+                                           placeholder="Host path (e.g., /mnt/user/data)">
+                                    <span class="text-gray-500">→</span>
+                                    <input x-model="mapping.container" 
+                                           type="text" 
+                                           class="input flex-1"
+                                           placeholder="Container path (e.g., /data)">
+                                    <button @click="removeDockerMapping(index)"
+                                            class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                                        ✕
+                                    </button>
+                                </div>
+                            </template>
+                            
+                            <button @click="addDockerMapping()"
+                                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                                ➕ Add Mapping
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Web Server Settings -->
+            <div class="config-card lg:col-span-2">
+                <h2 class="section-header">🌐 Web Server Settings</h2>
+                
+                <div class="grid lg:grid-cols-3 gap-4">
+                    <div class="input-group">
+                        <label class="label">Host</label>
+                        <input x-model="config.web_server.host" 
+                               type="text" 
+                               class="input"
+                               placeholder="0.0.0.0">
+                        <p class="text-xs text-gray-500">Bind address (0.0.0.0 for all interfaces)</p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="label">Port</label>
+                        <input x-model="config.web_server.port" 
+                               type="number" 
+                               class="input"
+                               placeholder="8094">
+                        <p class="text-xs text-gray-500">Web interface port</p>
+                    </div>
+                    
+                    <div class="flex items-center justify-center">
+                        <div class="checkbox-item">
+                            <input x-model="config.web_server.reload" 
+                                   type="checkbox" 
+                                   class="rounded border-gray-300 text-blue-600">
+                            <div>
+                                <span class="font-medium">🔄 Auto-Reload</span>
+                                <p class="text-xs text-gray-500">Development mode</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Tab -->
+        <div x-show="activeTab === 'security'">
+            
+            <!-- Secure Tracker Management -->
+            <div class="config-card mb-8">
+                <h2 class="section-header">� Secure Tracker Management</h2>
+                
+                <div class="config-section">
+                    <div class="p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
+                        <h3 class="font-bold text-green-900 mb-3 text-lg">🛡️ Tracker Security</h3>
+                        <p class="text-green-700 mb-4">
+                            Protect your tracker passkeys with encrypted storage. No more plain-text passkeys in configuration files.
+                        </p>
+                        
+                        <div class="bg-white p-4 rounded-lg border border-green-200 mb-4">
+                            <div class="flex items-center space-x-3">
+                                <code class="bg-green-100 px-3 py-2 rounded text-green-800 font-semibold">TRACKER</code>
+                                <span class="text-gray-600">Your tracker URL with passkey (masked for security)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="p-3 bg-green-100 rounded-lg">
+                            <p class="text-xs text-green-700">
+                                💡 <strong>Security Note:</strong> Tracker URLs are displayed with masked passkeys for security. 
+                                All credentials are AES-encrypted using a machine-specific key.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Tracker Credentials Status -->
+                    <div class="input-group">
+                        <label class="label">Current Stored Trackers</label>
+                        <div class="space-y-3">
+                            <template x-for="[key, info] in Object.entries(credentialDetails)" :key="key">
+                                <div x-show="key.startsWith('TRACKER')" class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-green-300 transition-colors">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3">
+                                            <code x-text="key" class="text-sm font-bold bg-gray-200 px-2 py-1 rounded"></code>
+                                            <span x-show="info.customName" 
+                                                  x-text="'(' + info.customName + ')'" 
+                                                  class="text-sm text-green-600 font-medium"></span>
+                                        </div>
+                                        <div x-show="info.maskedValue" 
+                                             x-text="info.maskedValue" 
+                                             class="text-xs text-gray-500 mt-2 font-mono bg-gray-100 p-2 rounded"></div>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <span x-show="info.exists" class="text-green-600 font-semibold">🔒 Stored</span>
+                                        <span x-show="!info.exists" class="text-red-600 font-semibold">❌ Not set</span>
+                                        <button x-show="info.exists" 
+                                                @click="deleteCredential(key)"
+                                                class="px-3 py-1 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 text-sm font-medium">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <!-- Show message if no trackers -->
+                            <div x-show="Object.keys(credentialDetails).filter(key => key.startsWith('TRACKER')).length === 0" 
+                                 class="p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-center">
+                                <p class="text-yellow-700">No tracker credentials stored yet</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Add New Tracker -->
+                    <div class="border-t pt-6">
+                        <h3 class="font-bold text-gray-900 mb-4">🔑 Add Tracker Credential</h3>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="input-group">
+                                    <label class="label">Tracker Name</label>
+                                    <input x-model="newCredential.customName" 
+                                           type="text" 
+                                           placeholder="e.g., redacted.sh, myanonamouse, torrentleech" 
+                                           class="input">
+                                    <p class="text-xs text-gray-500">Friendly name for identification</p>
+                                </div>
+                                <div class="input-group">
+                                    <label class="label">Credential Key</label>
+                                    <input x-model="newCredential.key" 
+                                           type="text" 
+                                           placeholder="TRACKER or TRACKER_SITE1" 
+                                           class="input">
+                                    <p class="text-xs text-gray-500">Use TRACKER or custom name like TRACKER_RED</p>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label class="label">Tracker URL with Passkey</label>
+                                <input x-model="newCredential.value" 
+                                       type="text"
+                                       placeholder="https://tracker.example.com/passkey123/announce" 
+                                       class="input">
+                                <div class="text-xs text-purple-600 mt-2 p-2 bg-purple-50 rounded">
+                                    💡 <strong>Include your full tracker URL with passkey</strong> - it will be masked in the display for security
+                                </div>
+                            </div>
+                            <div class="flex justify-end">
+                                <button @click="storeTrackerCredential()" 
+                                        :disabled="!newCredential.key || !newCredential.value"
+                                        class="accent-green disabled:bg-gray-300 text-white px-8 py-3 rounded-lg text-sm font-semibold">
+                                    🔒 Store Tracker Securely
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Migration from .env -->
+                    <div x-show="!migrationComplete" class="border-t pt-6">
+                        <div class="bg-yellow-50 p-6 rounded-xl border border-yellow-200">
+                            <h3 class="font-bold text-yellow-900 mb-3">📁 Migrate from .env file</h3>
+                            <p class="text-yellow-700 mb-4">
+                                Automatically move credentials from .env file to secure encrypted storage.
+                            </p>
+                            <button @click="migrateEnvCredentials()" 
+                                    class="accent-orange text-white px-6 py-3 rounded-lg text-sm font-semibold">
+                                🔄 Migrate Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Tab -->
+        <div x-show="activeTab === 'advanced'" class="grid lg:grid-cols-2 gap-8">
+            
+            <!-- Timeouts & Performance -->
+            <div class="config-card">
+                <h2 class="section-header">⏱️ Timeouts & Performance</h2>
+                
+                <div class="config-section">
+                    <div class="input-group">
+                        <label class="label">Torrent Creation Timeout (seconds)</label>
+                        <input x-model="config.torrent_creation.timeout" 
+                               type="number" 
+                               class="input"
+                               placeholder="300">
+                        <p class="text-xs text-gray-500">Maximum time to wait for torrent creation</p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="label">Poll Interval (seconds)</label>
+                        <input x-model="config.torrent_creation.poll_interval" 
+                               type="number" 
+                               step="0.1"
+                               class="input"
+                               placeholder="1.0">
+                        <p class="text-xs text-gray-500">How often to check torrent creation progress</p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="label">Padded File Size Limit (bytes)</label>
+                        <input x-model="config.torrent_creation.padded_file_size_limit" 
+                               type="number" 
+                               class="input"
+                               placeholder="Leave empty for no limit">
+                        <p class="text-xs text-gray-500">Maximum size for file padding optimization</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debug & Development -->
+            <div class="config-card">
+                <h2 class="section-header">🐛 Debug & Development</h2>
+                
+                <div class="config-section">
+                    <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <h3 class="font-medium text-yellow-900 mb-2">Development Settings</h3>
+                        <p class="text-sm text-yellow-700 mb-3">
+                            These settings are typically only modified for development or debugging purposes.
+                        </p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="label">Log Level</label>
+                        <select class="input">
+                            <option value="INFO">INFO (Recommended)</option>
+                            <option value="DEBUG">DEBUG (Verbose)</option>
+                            <option value="WARNING">WARNING (Minimal)</option>
+                            <option value="ERROR">ERROR (Critical only)</option>
+                        </select>
+                        <p class="text-xs text-gray-500">Amount of logging detail</p>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div class="checkbox-item">
+                            <input type="checkbox" class="rounded border-gray-300 text-blue-600">
+                            <div>
+                                <span class="font-medium">🔍 Enable API Debug</span>
+                                <p class="text-xs text-gray-500">Log all API requests and responses</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checkbox-item">
+                            <input type="checkbox" class="rounded border-gray-300 text-blue-600">
+                            <div>
+                                <span class="font-medium">📊 Performance Metrics</span>
+                                <p class="text-xs text-gray-500">Track creation times and resource usage</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export/Import Configuration -->
+            <div class="config-card lg:col-span-2">
+                <h2 class="section-header">💾 Configuration Backup</h2>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 class="font-medium text-blue-900 mb-3">📤 Export Configuration</h3>
+                        <p class="text-sm text-blue-700 mb-4">
+                            Download your current configuration as a backup file.
+                        </p>
+                        <button class="accent-blue text-white px-6 py-3 rounded-lg text-sm font-semibold w-full">
+                            📤 Export Config
+                        </button>
+                    </div>
+                    
+                    <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h3 class="font-medium text-green-900 mb-3">📥 Import Configuration</h3>
+                        <p class="text-sm text-green-700 mb-4">
+                            Restore configuration from a backup file.
+                        </p>
+                        <input type="file" accept=".yaml,.yml,.json" class="hidden" id="config-import">
+                        <label for="config-import" class="accent-green text-white px-6 py-3 rounded-lg text-sm font-semibold w-full cursor-pointer block text-center">
+                            📥 Import Config
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Save Button -->
+        <div class="mt-12 flex justify-center">
+            <button @click="saveConfig()" 
+                    :disabled="isLoading"
+                    class="accent-green disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 px-12 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all">
+                <span x-show="!isLoading">💾 Save All Configuration</span>
+                <span x-show="isLoading">⏳ Saving...</span>
+            </button>
+        </div>
+        
+        <!-- Save Status -->
+        <div x-show="saveStatus" 
+             :class="saveSuccess ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-800'"
+             class="border-2 rounded-xl p-6 mt-6">
+            <div class="flex items-center justify-center">
+                <span x-show="saveSuccess" class="text-green-600 text-2xl">✅</span>
+                <span x-show="!saveSuccess" class="text-red-600 text-2xl">❌</span>
+                <span x-text="saveMessage" class="ml-4 font-medium text-lg"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function configManager() {
+            return {
+                // State
+                activeTab: 'connection',
+                config: {
+                    qbittorrent: {
+                        host: '10.1.60.2',
+                        port: 8083,
+                        username: '',
+                        password: '',
+                        category: 'upload.audiobooks',
+                        save_path: '/data/downloads/torrents/qbittorrent/seedvault/audiobooks',
+                        auto_add_after_creation: true,
+                        auto_torrent_management: true,
+                        connection_timeout: 10.0,
+                        read_timeout: 30.0,
+                        tags: ['Uploaded:H2OKing'],
+                        trackers: [],
+                        max_tag_length: 50
+                    },
+                    docker_mapping: {
+                        enabled: true,
+                        mappings: {}
+                    },
+                    torrent_creation: {
+                        format: 'v2',
+                        private: true,
+                        start_seeding: true,
+                        comment: 'Created with Easy Torrent Creator',
+                        piece_size: null,
+                        optimize_alignment: true,
+                        padded_file_size_limit: null,
+                        timeout: 300,
+                        poll_interval: 1.0
+                    },
+                    default_output_dir: './torrents',
+                    default_upload_root: '/mnt/user/data/downloads/torrents/qbittorrent/seedvault/',
+                    remember_last_folder: true,
+                    auto_open_output_folder: true,
+                    web_server: {
+                        host: '0.0.0.0',
+                        port: 8094,
+                        reload: true
+                    }
+                },
+                dockerMappings: [],
+                tagsInput: '',
+                credentialStatus: {},
+                credentialDetails: {},
+                newCredential: {
+                    key: '',
+                    value: '',
+                    customName: ''
+                },
+                newQbitCredential: {
+                    key: '',
+                    value: ''
+                },
+                migrationComplete: false,
+                isLoading: false,
+                connectionStatus: null,
+                connectionSuccess: false,
+                connectionMessage: '',
+                saveStatus: null,
+                saveSuccess: false,
+                saveMessage: '',
+                
+                // Initialize
+                async init() {
+                    await this.loadConfig();
+                    await this.loadCredentialStatus();
+                    await this.loadCredentialDetails();
+                    this.initDockerMappings();
+                    this.initTagsInput();
+                },
+                
+                // Initialize docker mappings for UI
+                initDockerMappings() {
+                    this.dockerMappings = [];
+                    if (this.config.docker_mapping.mappings) {
+                        for (const [host, container] of Object.entries(this.config.docker_mapping.mappings)) {
+                            this.dockerMappings.push({ host, container });
+                        }
+                    }
+                    // Add empty mapping if none exist
+                    if (this.dockerMappings.length === 0) {
+                        this.dockerMappings.push({ host: '/mnt/user/data', container: '/data' });
+                    }
+                },
+                
+                // Initialize tags input from array
+                initTagsInput() {
+                    if (this.config.qbittorrent.tags && Array.isArray(this.config.qbittorrent.tags)) {
+                        this.tagsInput = this.config.qbittorrent.tags.join(', ');
+                    }
+                },
+                
+                // Add docker mapping
+                addDockerMapping() {
+                    this.dockerMappings.push({ host: '', container: '' });
+                },
+                
+                // Remove docker mapping
+                removeDockerMapping(index) {
+                    this.dockerMappings.splice(index, 1);
+                },
+                
+                // Update config before saving
+                updateConfigFromUI() {
+                    // Update docker mappings
+                    this.config.docker_mapping.mappings = {};
+                    this.dockerMappings.forEach(mapping => {
+                        if (mapping.host && mapping.container) {
+                            this.config.docker_mapping.mappings[mapping.host] = mapping.container;
+                        }
+                    });
+                    
+                    // Update tags from input
+                    if (this.tagsInput) {
+                        this.config.qbittorrent.tags = this.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
+                    } else {
+                        this.config.qbittorrent.tags = [];
+                    }
+                },
+                
+                // Mask tracker URL to hide passkey
+                maskTrackerUrl(url) {
+                    if (!url || typeof url !== 'string') return '';
+                    
+                    // Pattern to match common tracker URL formats
+                    const patterns = [
+                        // https://tracker.domain.com/PASSKEY/announce
+                        /^(https?:\/\/[^\/]+\/)([^\/]{20,})(\/.*)$/,
+                        // https://tracker.domain.com/announce.php?passkey=PASSKEY&...
+                        /^(https?:\/\/[^?]+\?[^=]*=)([^&]{20,})(.*)$/,
+                    ];
+                    
+                    for (const pattern of patterns) {
+                        const match = url.match(pattern);
+                        if (match) {
+                            const masked = match[2].substring(0, 8) + '#'.repeat(Math.max(8, match[2].length - 8));
+                            return match[1] + masked + match[3];
+                        }
+                    }
+                    
+                    // Fallback: just show the domain part
+                    try {
+                        const urlObj = new URL(url);
+                        return `${urlObj.protocol}//${urlObj.host}/################${urlObj.pathname.includes('announce') ? '/announce' : ''}`;
+                    } catch {
+                        return 'Invalid URL format';
+                    }
+                },
+                
+                // Load configuration
+                async loadConfig() {
+                    this.isLoading = true;
+                    try {
+                        const response = await fetch('/api/config');
+                        const loadedConfig = await response.json();
+                        
+                        // Deep merge to preserve nested structure
+                        this.config = this.deepMerge(this.config, loadedConfig);
+                        
+                        console.log('Config loaded:', this.config);
+                    } catch (error) {
+                        console.error('Failed to load config:', error);
+                    }
+                    this.isLoading = false;
+                },
+                
+                // Helper function for deep merging objects
+                deepMerge(target, source) {
+                    const result = { ...target };
+                    
+                    for (const key in source) {
+                        if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                            if (result[key] && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+                                result[key] = this.deepMerge(result[key], source[key]);
+                            } else {
+                                result[key] = source[key];
+                            }
+                        } else {
+                            result[key] = source[key];
+                        }
+                    }
+                    
+                    return result;
+                },
+                
+                // Load credential status
+                async loadCredentialStatus() {
+                    try {
+                        const response = await fetch('/api/credentials/status');
+                        this.credentialStatus = await response.json();
+                    } catch (error) {
+                        console.error('Failed to load credential status:', error);
+                        // Fallback for common credentials
+                        this.credentialStatus = {
+                            'TRACKER': false,
+                            'QBIT_USERNAME': false,
+                            'QBIT_PASSWORD': false
+                        };
+                    }
+                },
+                
+                // Load detailed credential information
+                async loadCredentialDetails() {
+                    try {
+                        const response = await fetch('/api/credentials/details');
+                        const details = await response.json();
+                        
+                        // Transform the response into display format
+                        this.credentialDetails = {};
+                        for (const [key, info] of Object.entries(details)) {
+                            this.credentialDetails[key] = {
+                                exists: info.exists,
+                                customName: info.custom_name || '',
+                                maskedValue: info.masked_value || ''
+                            };
+                        }
+                    } catch (error) {
+                        console.error('Failed to load credential details:', error);
+                        // Fallback using status only
+                        this.credentialDetails = {};
+                        for (const [key, exists] of Object.entries(this.credentialStatus)) {
+                            this.credentialDetails[key] = {
+                                exists: exists,
+                                customName: '',
+                                maskedValue: ''
+                            };
+                        }
+                    }
+                },
+                
+                // Auto-set credential references
+                async autoSetCredentialReferences() {
+                    // Auto-set references to secure credentials if they exist
+                    if (this.credentialDetails.QBIT_USERNAME?.exists) {
+                        this.config.qbittorrent.username = '${QBIT_USERNAME}';
+                    }
+                    if (this.credentialDetails.QBIT_PASSWORD?.exists) {
+                        this.config.qbittorrent.password = '${QBIT_PASSWORD}';
+                    }
+                    
+                    if (this.credentialDetails.QBIT_USERNAME?.exists || this.credentialDetails.QBIT_PASSWORD?.exists) {
+                        this.showToast('Credential references set automatically!', 'success');
+                    } else {
+                        this.showToast('No secure credentials found. Please store them first in the Security tab.', 'warning');
+                    }
+                },
+                
+                // Show toast notifications (simple version)
+                showToast(message, type) {
+                    // For now, just use alert - could be enhanced later
+                    const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '💡';
+                    alert(`${icon} ${message}`);
+                },
+                
+                // Store qBittorrent credential securely
+                async storeQbitCredential() {
+                    if (!this.newQbitCredential.key || !this.newQbitCredential.value) {
+                        alert('Please provide both credential type and value');
+                        return;
+                    }
+                    
+                    try {
+                        const payload = {
+                            key: this.newQbitCredential.key,
+                            value: this.newQbitCredential.value
+                        };
+                        
+                        const response = await fetch('/api/credentials', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        const result = await response.json();
+                        if (result.success) {
+                            alert(`✅ ${result.message}`);
+                            this.newQbitCredential = { key: '', value: '' };
+                            await this.loadCredentialStatus();
+                            await this.loadCredentialDetails();
+                        } else {
+                            alert(`❌ ${result.message}`);
+                        }
+                    } catch (error) {
+                        alert(`❌ Error storing credential: ${error.message}`);
+                    }
+                },
+                
+                // Store tracker credential securely
+                async storeTrackerCredential() {
+                    if (!this.newCredential.key || !this.newCredential.value) {
+                        alert('Please provide both key and tracker URL');
+                        return;
+                    }
+                    
+                    try {
+                        const payload = {
+                            key: this.newCredential.key,
+                            value: this.newCredential.value
+                        };
+                        
+                        // Add custom name for trackers
+                        if (this.newCredential.customName) {
+                            payload.customName = this.newCredential.customName;
+                        }
+                        
+                        const response = await fetch('/api/credentials', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        const result = await response.json();
+                        if (result.success) {
+                            alert(`✅ ${result.message}`);
+                            this.newCredential = { key: '', value: '', customName: '' };
+                            await this.loadCredentialStatus();
+                            await this.loadCredentialDetails();
+                        } else {
+                            alert(`❌ ${result.message}`);
+                        }
+                    } catch (error) {
+                        alert(`❌ Error storing credential: ${error.message}`);
+                    }
+                },
+                
+                // Store credential securely (legacy function for backward compatibility)
+                async storeCredential() {
+                    return this.storeTrackerCredential();
+                },
+                
+                // Delete credential
+                async deleteCredential(key) {
+                    if (!confirm(`Are you sure you want to delete the ${key} credential?`)) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/api/credentials', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ key })
+                        });
+                        
+                        const result = await response.json();
+                        if (result.success) {
+                            alert(`✅ ${result.message}`);
+                            await this.loadCredentialStatus();
+                            await this.loadCredentialDetails();
+                        } else {
+                            alert(`❌ ${result.message}`);
+                        }
+                    } catch (error) {
+                        alert(`❌ Error deleting credential: ${error.message}`);
+                    }
+                },
+                
+                // Migrate credentials from .env
+                async migrateEnvCredentials() {
+                    try {
+                        const response = await fetch('/api/migrate-env', {
+                            method: 'POST'
+                        });
+                        
+                        const result = await response.json();
+                        if (result.success) {
+                            alert(`✅ ${result.message}`);
+                            this.migrationComplete = true;
+                            await this.loadCredentialStatus();
+                            await this.loadCredentialDetails();
+                        } else {
+                            alert(`❌ ${result.message}`);
+                        }
+                    } catch (error) {
+                        alert(`❌ Migration error: ${error.message}`);
+                    }
+                },
+                
+                // Save configuration
+                async saveConfig() {
+                    this.isLoading = true;
+                    this.saveStatus = null;
+                    
+                    try {
+                        // Update config from UI components
+                        this.updateConfigFromUI();
+                        
+                        const response = await fetch('/api/save-config', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.config)
+                        });
+                        
+                        const result = await response.json();
+                        this.saveSuccess = result.success;
+                        this.saveMessage = result.message || (result.success ? 'Configuration saved successfully!' : 'Failed to save configuration');
+                        this.saveStatus = true;
+                        
+                    } catch (error) {
+                        this.saveSuccess = false;
+                        this.saveMessage = `Save failed: ${error.message}`;
+                        this.saveStatus = true;
+                    }
+                    
+                    this.isLoading = false;
+                    
+                    // Hide status after 8 seconds
+                    setTimeout(() => {
+                        this.saveStatus = null;
+                    }, 8000);
+                },
+                
+                // Test connection
+                async testConnection() {
+                    this.isLoading = true;
+                    this.connectionStatus = null;
+                    
+                    try {
+                        const response = await fetch('/api/test-connection', { method: 'POST' });
+                        const data = await response.json();
+                        this.connectionSuccess = data.success;
+                        this.connectionMessage = data.message;
+                        this.connectionStatus = true;
+                    } catch (error) {
+                        this.connectionSuccess = false;
+                        this.connectionMessage = `Connection failed: ${error.message}`;
+                        this.connectionStatus = true;
+                    }
+                    
+                    this.isLoading = false;
+                    
+                    // Hide status after 8 seconds
+                    setTimeout(() => {
+                        this.connectionStatus = null;
+                    }, 8000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

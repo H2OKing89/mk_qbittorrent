@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - qBittorrent Style</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        /* qBittorrent color scheme */
+        :root {
+            --qbit-primary: #2b5797;
+            --qbit-secondary: #355c7d;
+            --qbit-accent: #3498db;
+            --qbit-bg: #f8f9fa;
+            --qbit-sidebar: #2c3e50;
+            --qbit-toolbar: #34495e;
+            --qbit-border: #bdc3c7;
+            --qbit-text: #2c3e50;
+            --qbit-text-light: #7f8c8d;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--qbit-bg);
+        }
+        
+        /* qBittorrent-style toolbar */
+        .qbit-toolbar {
+            background: linear-gradient(to bottom, #34495e, #2c3e50);
+            border-bottom: 1px solid #1a252f;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        /* qBittorrent-style sidebar */
+        .qbit-sidebar {
+            background: linear-gradient(to bottom, #34495e, #2c3e50);
+            border-right: 1px solid #1a252f;
+        }
+        
+        /* qBittorrent-style content area */
+        .qbit-content {
+            background: white;
+            border: 1px solid var(--qbit-border);
+        }
+        
+        /* qBittorrent-style tabs */
+        .qbit-tab {
+            background: #ecf0f1;
+            border: 1px solid var(--qbit-border);
+            border-bottom: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .qbit-tab:hover {
+            background: #d5dbdb;
+        }
+        
+        .qbit-tab.active {
+            background: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+        }
+        
+        /* qBittorrent-style buttons */
+        .qbit-btn {
+            background: linear-gradient(to bottom, #3498db, #2980b9);
+            border: 1px solid #2471a3;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .qbit-btn:hover {
+            background: linear-gradient(to bottom, #5dade2, #3498db);
+        }
+        
+        .qbit-btn:active {
+            background: linear-gradient(to bottom, #2980b9, #1b4f72);
+        }
+        
+        .qbit-btn.secondary {
+            background: linear-gradient(to bottom, #95a5a6, #7f8c8d);
+            border-color: #6c7b7d;
+        }
+        
+        .qbit-btn.secondary:hover {
+            background: linear-gradient(to bottom, #a9b7b8, #95a5a6);
+        }
+        
+        /* qBittorrent-style status bar */
+        .qbit-statusbar {
+            background: linear-gradient(to bottom, #bdc3c7, #95a5a6);
+            border-top: 1px solid #85929e;
+            color: var(--qbit-text);
+            font-size: 12px;
+        }
+        
+        /* qBittorrent-style table */
+        .qbit-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        .qbit-table th {
+            background: linear-gradient(to bottom, #ecf0f1, #d5dbdb);
+            border: 1px solid var(--qbit-border);
+            padding: 8px;
+            text-align: left;
+            font-weight: normal;
+            color: var(--qbit-text);
+        }
+        
+        .qbit-table td {
+            border: 1px solid var(--qbit-border);
+            padding: 8px;
+        }
+        
+        .qbit-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        /* File browser styling */
+        .file-item {
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 2px;
+            transition: background-color 0.2s;
+        }
+        
+        .file-item:hover {
+            background: #e8f4fd;
+        }
+        
+        .file-item.selected {
+            background: #3498db;
+            color: white;
+        }
+        
+        .breadcrumb {
+            background: #ecf0f1;
+            border: 1px solid var(--qbit-border);
+            padding: 8px;
+            border-radius: 3px;
+        }
+        
+        .breadcrumb a {
+            color: var(--qbit-accent);
+            text-decoration: none;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div x-data="qbitTorrentCreator()" x-cloak class="h-screen flex flex-col">
+        
+        <!-- Top Toolbar (qBittorrent style) -->
+        <div class="qbit-toolbar text-white px-4 py-2 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-download text-lg"></i>
+                    <span class="font-semibold">Easy Torrent Creator</span>
+                </div>
+                <div class="h-6 w-px bg-gray-500"></div>
+                <div class="flex space-x-2">
+                    <button @click="createTorrent()" 
+                            :disabled="!selectedPath || isCreating"
+                            class="qbit-btn text-sm">
+                        <i class="fas fa-plus mr-1"></i> Create Torrent
+                    </button>
+                    <button @click="testConnection()" 
+                            :disabled="isLoading"
+                            class="qbit-btn secondary text-sm">
+                        <i class="fas fa-plug mr-1"></i> Test Connection
+                    </button>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <!-- Connection Status Indicator -->
+                <div class="flex items-center space-x-2">
+                    <div :class="connectionSuccess ? 'bg-green-500' : 'bg-red-500'" 
+                         class="w-2 h-2 rounded-full"></div>
+                    <span class="text-sm" x-text="connectionStatus || 'Disconnected'"></span>
+                </div>
+                <button onclick="window.location.href='/config'" class="qbit-btn secondary text-sm">
+                    <i class="fas fa-cog mr-1"></i> Settings
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Layout -->
+        <div class="flex flex-1">
+            
+            <!-- Left Sidebar (qBittorrent style) -->
+            <div class="qbit-sidebar w-64 text-white">
+                <div class="p-4">
+                    <h3 class="text-sm font-semibold mb-3 text-gray-300">NAVIGATION</h3>
+                    <div class="space-y-1">
+                        <div @click="currentView = 'browser'" 
+                             :class="currentView === 'browser' ? 'bg-blue-600' : 'hover:bg-gray-600'"
+                             class="flex items-center space-x-2 px-3 py-2 rounded cursor-pointer">
+                            <i class="fas fa-folder"></i>
+                            <span>File Browser</span>
+                        </div>
+                        <div @click="currentView = 'history'" 
+                             :class="currentView === 'history' ? 'bg-blue-600' : 'hover:bg-gray-600'"
+                             class="flex items-center space-x-2 px-3 py-2 rounded cursor-pointer">
+                            <i class="fas fa-history"></i>
+                            <span>Recent Torrents</span>
+                        </div>
+                        <div @click="currentView = 'queue'" 
+                             :class="currentView === 'queue' ? 'bg-blue-600' : 'hover:bg-gray-600'"
+                             class="flex items-center space-x-2 px-3 py-2 rounded cursor-pointer">
+                            <i class="fas fa-list"></i>
+                            <span>Creation Queue</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Torrent Info Panel -->
+                <div class="p-4 border-t border-gray-600" x-show="selectedPath">
+                    <h3 class="text-sm font-semibold mb-2 text-gray-300">SELECTION INFO</h3>
+                    <div class="text-sm space-y-1">
+                        <div class="text-gray-400">Path:</div>
+                        <div class="text-white break-all text-xs" x-text="selectedPath"></div>
+                        <div class="text-gray-400 mt-2">Size:</div>
+                        <div class="text-white" x-text="selectedInfo?.size_formatted || 'Unknown'"></div>
+                        <div class="text-gray-400 mt-2">Files:</div>
+                        <div class="text-white" x-text="selectedInfo?.file_count || 'Unknown'"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Content Area -->
+            <div class="flex-1 flex flex-col">
+                
+                <!-- Content Tabs -->
+                <div class="flex border-b border-gray-300 bg-gray-100">
+                    <div class="qbit-tab active">
+                        <i class="fas fa-folder mr-2"></i>File Browser
+                    </div>
+                </div>
+                
+                <!-- Content Area -->
+                <div class="qbit-content flex-1 overflow-hidden">
+                    
+                    <!-- File Browser View -->
+                    <div x-show="currentView === 'browser'" class="h-full flex flex-col">
+                        
+                        <!-- Breadcrumb Navigation -->
+                        <div class="breadcrumb m-3">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-home"></i>
+                                <template x-for="(segment, index) in pathSegments" :key="index">
+                                    <div class="flex items-center space-x-2">
+                                        <span>/</span>
+                                        <a href="#" @click="navigateToPath(getPathUpToIndex(index))" 
+                                           x-text="segment" class="hover:underline"></a>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <!-- File List -->
+                        <div class="flex-1 overflow-y-auto p-3">
+                            <div class="space-y-1">
+                                <!-- Parent directory -->
+                                <div x-show="currentPath !== '/'" 
+                                     @click="navigateUp()"
+                                     class="file-item flex items-center space-x-3">
+                                    <i class="fas fa-level-up-alt text-blue-500"></i>
+                                    <span>..</span>
+                                </div>
+                                
+                                <!-- Folders -->
+                                <template x-for="item in folders" :key="item.path">
+                                    <div @click="navigateToFolder(item.path)"
+                                         class="file-item flex items-center space-x-3">
+                                        <i class="fas fa-folder text-yellow-500"></i>
+                                        <span x-text="item.name"></span>
+                                    </div>
+                                </template>
+                                
+                                <!-- Files -->
+                                <template x-for="item in files" :key="item.path">
+                                    <div @click="selectPath(item.path, item)"
+                                         :class="selectedPath === item.path ? 'selected' : ''"
+                                         class="file-item flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <i class="fas fa-file text-gray-500"></i>
+                                            <span x-text="item.name"></span>
+                                        </div>
+                                        <span class="text-sm text-gray-500" x-text="item.size_formatted"></span>
+                                    </div>
+                                </template>
+                                
+                                <!-- Directories (selectable for torrent creation) -->
+                                <template x-for="item in selectableFolders" :key="item.path">
+                                    <div @dblclick="navigateToFolder(item.path)"
+                                         @click="selectPath(item.path, item)"
+                                         :class="selectedPath === item.path ? 'selected' : ''"
+                                         class="file-item flex items-center justify-between border-l-2 border-blue-400 bg-blue-50">
+                                        <div class="flex items-center space-x-3">
+                                            <i class="fas fa-folder-open text-blue-500"></i>
+                                            <span x-text="item.name"></span>
+                                            <span class="text-xs bg-blue-100 px-2 py-1 rounded">Folder</span>
+                                        </div>
+                                        <span class="text-sm text-gray-500" x-text="item.size_formatted"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Creation Progress -->
+                    <div x-show="isCreating" class="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center">
+                        <div class="bg-white border border-gray-300 rounded-lg p-6 shadow-lg">
+                            <div class="flex items-center space-x-3">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                                <span>Creating torrent...</span>
+                            </div>
+                            <div class="mt-4">
+                                <div class="bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full progress-bar" 
+                                         :style="`width: ${creationProgress}%`"></div>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-2" x-text="creationStatus"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Status Bar (qBittorrent style) -->
+        <div class="qbit-statusbar px-4 py-2 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <span x-text="folderStats"></span>
+                <span x-show="selectedPath" x-text="`Selected: ${selectedPath?.split('/').pop()}`"></span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span x-text="connectionStatusText"></span>
+                <span>Ready</span>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        function qbitTorrentCreator() {
+            return {
+                // State
+                currentView: 'browser',
+                currentPath: '/',
+                selectedPath: null,
+                selectedInfo: null,
+                isLoading: false,
+                isCreating: false,
+                creationProgress: 0,
+                creationStatus: '',
+                
+                // Connection state
+                connectionSuccess: false,
+                connectionStatus: null,
+                connectionStatusText: 'Disconnected',
+                
+                // File browser state
+                folders: [],
+                files: [],
+                selectableFolders: [],
+                folderStats: '',
+                
+                // Computed
+                get pathSegments() {
+                    return this.currentPath.split('/').filter(segment => segment.length > 0);
+                },
+                
+                // Methods
+                async init() {
+                    await this.loadCurrentPath();
+                    await this.testConnection();
+                },
+                
+                getPathUpToIndex(index) {
+                    return '/' + this.pathSegments.slice(0, index + 1).join('/');
+                },
+                
+                async loadCurrentPath() {
+                    this.isLoading = true;
+                    try {
+                        const response = await fetch(`/api/folders?path=${encodeURIComponent(this.currentPath)}`);
+                        const data = await response.json();
+                        
+                        this.folders = data.items.filter(item => item.type === 'directory' && !item.name.startsWith('.'));
+                        this.files = data.items.filter(item => item.type === 'file');
+                        this.selectableFolders = data.items.filter(item => item.type === 'directory' && !item.name.startsWith('.'));
+                        
+                        this.folderStats = `${this.folders.length} folders, ${this.files.length} files`;
+                    } catch (error) {
+                        console.error('Failed to load folder:', error);
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                
+                navigateToFolder(path) {
+                    this.currentPath = path;
+                    this.selectedPath = null;
+                    this.selectedInfo = null;
+                    this.loadCurrentPath();
+                },
+                
+                navigateUp() {
+                    const pathParts = this.currentPath.split('/').filter(p => p);
+                    pathParts.pop();
+                    this.currentPath = '/' + pathParts.join('/');
+                    this.selectedPath = null;
+                    this.selectedInfo = null;
+                    this.loadCurrentPath();
+                },
+                
+                navigateToPath(path) {
+                    this.currentPath = path;
+                    this.selectedPath = null;
+                    this.selectedInfo = null;
+                    this.loadCurrentPath();
+                },
+                
+                async selectPath(path, info) {
+                    this.selectedPath = path;
+                    this.selectedInfo = info;
+                    
+                    // Get detailed info
+                    try {
+                        const response = await fetch(`/api/folder-info?path=${encodeURIComponent(path)}`);
+                        const detailedInfo = await response.json();
+                        this.selectedInfo = { ...info, ...detailedInfo };
+                    } catch (error) {
+                        console.error('Failed to get folder info:', error);
+                    }
+                },
+                
+                async testConnection() {
+                    this.isLoading = true;
+                    try {
+                        const response = await fetch('/api/test-connection', { method: 'POST' });
+                        const data = await response.json();
+                        
+                        this.connectionSuccess = data.success;
+                        this.connectionStatus = data.message;
+                        this.connectionStatusText = data.success ? 'Connected' : 'Connection Failed';
+                    } catch (error) {
+                        this.connectionSuccess = false;
+                        this.connectionStatus = `Connection error: ${error.message}`;
+                        this.connectionStatusText = 'Error';
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                
+                async createTorrent() {
+                    if (!this.selectedPath) return;
+                    
+                    this.isCreating = true;
+                    this.creationProgress = 0;
+                    this.creationStatus = 'Initializing...';
+                    
+                    try {
+                        const response = await fetch('/api/create-torrent', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                path: this.selectedPath,
+                                comment: `Created with Easy Torrent Creator`,
+                                private: true,
+                                start_seeding: true
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            this.creationStatus = 'Torrent created successfully!';
+                            this.creationProgress = 100;
+                            
+                            setTimeout(() => {
+                                this.isCreating = false;
+                                this.selectedPath = null;
+                                this.selectedInfo = null;
+                            }, 2000);
+                        } else {
+                            throw new Error(data.error || 'Unknown error');
+                        }
+                    } catch (error) {
+                        this.creationStatus = `Error: ${error.message}`;
+                        setTimeout(() => this.isCreating = false, 3000);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

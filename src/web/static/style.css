@@ -1,0 +1,118 @@
+/* Custom styles for Easy Torrent Creator */
+
+/* Additional animations and custom styles */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Custom scrollbar for folder list */
+.folder-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.folder-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.folder-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+.folder-list::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* Improved button hover effects */
+.btn-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+}
+
+/* Status indicators */
+.status-success {
+    background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+.status-error {
+    background: linear-gradient(135deg, #ef4444, #f87171);
+}
+
+.status-warning {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+}
+
+/* Loading spinner */
+.spinner {
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Dark mode variables (for future use) */
+:root {
+    --primary-color: #3b82f6;
+    --secondary-color: #6b7280;
+    --success-color: #10b981;
+    --error-color: #ef4444;
+    --warning-color: #f59e0b;
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9fafb;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border-color: #d1d5db;
+}
+
+/* Mobile responsiveness improvements */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .grid-responsive {
+        grid-template-columns: 1fr;
+    }
+    
+    .text-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .button-responsive {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+}

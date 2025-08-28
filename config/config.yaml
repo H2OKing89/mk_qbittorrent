@@ -1,0 +1,36 @@
+auto_open_output_folder: true
+default_output_dir: ./torrents
+default_upload_root: /mnt/user/data/downloads/torrents/qbittorrent/seedvault/
+qbittorrent:
+  auto_add_after_creation: true
+  auto_torrent_management: true
+  category: upload.audiobooks
+  connection_timeout: 10.0
+  docker_path_mapping:
+    /mnt/user/data: /data
+  host: 10.1.60.2
+  max_tag_length: 50
+  password: ${QBIT_PASSWORD}
+  port: 8083
+  read_timeout: 30.0
+  save_path: /data/downloads/torrents/qbittorrent/seedvault/audiobooks
+  tags:
+  - Uploaded:H2OKing
+  trackers:
+  - ${TRACKER}
+  username: ${QBIT_USERNAME}
+remember_last_folder: true
+torrent_creation:
+  comment: Created with Easy Torrent Creator
+  format: v1
+  optimize_alignment: true
+  padded_file_size_limit: null
+  piece_size: null
+  poll_interval: 1.0
+  private: true
+  start_seeding: true
+  timeout: 300
+web_server:
+  host: 0.0.0.0
+  port: 8094
+  reload: true
