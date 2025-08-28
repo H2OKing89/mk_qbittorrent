@@ -3,7 +3,7 @@ File utilities for folder information and file operations
 """
 import os
 from pathlib import Path
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Tuple
 
 
 def format_file_size(size_bytes: int) -> str:
@@ -100,7 +100,7 @@ def get_folder_info(folder_path: Path) -> Dict[str, Any]:
             "error": f"Cannot scan folder: {e}"
         }
     
-    info = {
+    info: Dict[str, Any] = {
         "name": folder_path.name,
         "path": str(folder_path),
         "exists": True,
@@ -116,7 +116,7 @@ def get_folder_info(folder_path: Path) -> Dict[str, Any]:
     return info
 
 
-def validate_folder_for_torrent(folder_path: Path) -> tuple[bool, str]:
+def validate_folder_for_torrent(folder_path: Path) -> Tuple[bool, str]:
     """
     Validate if a folder is suitable for torrent creation
     

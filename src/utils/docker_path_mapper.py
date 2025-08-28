@@ -3,13 +3,13 @@ Docker Path Mapping Utilities
 Handles translation between host and container paths for Docker deployments
 """
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union, List
 
 
 class DockerPathMapper:
     """Handles path translation between host and container paths"""
     
-    def __init__(self, path_mapping: Dict[str, str] = None):
+    def __init__(self, path_mapping: Optional[Dict[str, str]] = None):
         """
         Initialize with docker path mapping configuration
         
@@ -150,7 +150,7 @@ class DockerPathMapper:
             "all_mappings": self.path_mapping
         }
     
-    def validate_mapping(self) -> Dict[str, list]:
+    def validate_mapping(self) -> Dict[str, Union[List[str], bool]]:
         """
         Validate docker path mappings
         
