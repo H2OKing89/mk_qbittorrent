@@ -1,0 +1,52 @@
+/* Component-specific styles */
+
+/* Button Components */
+.qbit-btn {
+  @apply inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-qbit-accent;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.qbit-btn-primary {
+  @apply bg-qbit-accent text-white hover:bg-qbit-accent-hover;
+  @apply shadow-md hover:shadow-lg;
+}
+
+.qbit-btn-secondary {
+  @apply bg-qbit-bg-secondary text-qbit-text-primary border border-qbit-border-primary;
+  @apply hover:bg-qbit-bg-hover hover:border-qbit-border-secondary;
+}
+
+.qbit-btn-ghost {
+  @apply text-qbit-text-secondary hover:text-qbit-text-primary hover:bg-qbit-bg-hover;
+}
+
+.qbit-btn-danger {
+  @apply bg-qbit-error text-white hover:bg-red-600;
+}
+
+.qbit-btn-success {
+  @apply bg-qbit-success text-white hover:bg-green-600;
+}
+
+/* Icon buttons */
+.qbit-btn-icon {
+  @apply w-8 h-8 p-1 rounded-md;
+}
+
+/* Button groups */
+.qbit-btn-group {
+  @apply inline-flex rounded-lg overflow-hidden;
+}
+
+.qbit-btn-group .qbit-btn {
+  @apply rounded-none border-r border-qbit-border-primary last:border-r-0;
+}
+
+.qbit-btn-group .qbit-btn:first-child {
+  @apply rounded-l-lg;
+}
+
+.qbit-btn-group .qbit-btn:last-child {
+  @apply rounded-r-lg;
+}

@@ -1045,12 +1045,39 @@ async def unified_scan_path(request: dict):
 @app.get("/")
 async def root(request: Request):
     """Serve the main torrent creator UI"""
-    return templates.TemplateResponse("torrent_creator.html", {"request": request})
+    # Check if development mode (Vite dev server running)
+    development_mode = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
+    return templates.TemplateResponse("torrent_creator.html", {
+        "request": request,
+        "development_mode": development_mode
+    })
 
 @app.get("/creator")
 async def torrent_creator_ui(request: Request):
     """Serve the torrent creator UI (alternative route)"""
-    return templates.TemplateResponse("torrent_creator.html", {"request": request})
+    development_mode = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
+    return templates.TemplateResponse("torrent_creator.html", {
+        "request": request,
+        "development_mode": development_mode
+    })
+
+@app.get("/pro")
+async def torrent_creator_pro(request: Request):
+    """Serve the professional torrent creator UI with modular architecture"""
+    development_mode = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
+    return templates.TemplateResponse("torrent-creator-pro.html", {
+        "request": request,
+        "development_mode": development_mode
+    })
+
+@app.get("/desktop")
+async def torrent_creator_desktop(request: Request):
+    """Serve the desktop-like torrent creator UI that matches qBittorrent desktop"""
+    development_mode = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
+    return templates.TemplateResponse("pages/torrent-creator-professional.html", {
+        "request": request,
+        "development_mode": development_mode
+    })
 
 # =============================================================================
 # HEALTH CHECK

@@ -1,0 +1,50 @@
+{
+  "name": "qbittorrent-torrent-creator",
+  "version": "1.0.0",
+  "description": "Professional torrent creator UI for qBittorrent with Alpine.js and Tailwind CSS",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "format": "prettier --write \"src/**/*.{js,css,html}\"",
+    "lint": "eslint src/**/*.js",
+    "analyze": "vite-bundle-analyzer dist"
+  },
+  "dependencies": {
+    "@alpinejs/collapse": "^3.14.9",
+    "@alpinejs/focus": "^3.14.9",
+    "@alpinejs/persist": "^3.14.9",
+    "alpinejs": "^3.13.3",
+    "dayjs": "^1.11.10",
+    "socket.io-client": "^4.7.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8.56.0",
+    "postcss": "^8.4.33",
+    "prettier": "^3.2.5",
+    "tailwindcss": "^3.4.1",
+    "terser": "^5.43.1",
+    "vite": "^5.0.12",
+    "vite-bundle-analyzer": "^0.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "qbittorrent",
+    "torrent",
+    "creator",
+    "alpinejs",
+    "tailwindcss",
+    "vite",
+    "fastapi"
+  ],
+  "author": "qBittorrent Torrent Creator Team",
+  "license": "MIT"
+}

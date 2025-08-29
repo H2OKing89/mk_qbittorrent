@@ -1,0 +1,197 @@
+/* Main CSS Entry Point */
+
+/* Import custom styles first (before Tailwind) */
+@import './base/reset.css';
+@import './base/typography.css';
+@import './components/buttons.css';
+
+/* Then import Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom qBittorrent theme styles */
+@layer base {
+  body {
+    @apply bg-qbit-bg-primary text-qbit-text-primary font-inter;
+  }
+  
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-qbit-bg-secondary;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-qbit-bg-tertiary rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-qbit-bg-quaternary;
+  }
+}
+
+@layer components {
+  /* Form component styles */
+  .qbit-input {
+    @apply w-full px-3 py-2 bg-qbit-input-bg border border-qbit-input-border rounded-lg;
+    @apply text-qbit-text-primary placeholder-qbit-text-muted;
+    @apply focus:outline-none focus:ring-2 focus:ring-qbit-accent focus:border-qbit-accent;
+    @apply transition-colors duration-200;
+  }
+  
+  .qbit-input:disabled {
+    @apply bg-qbit-bg-tertiary text-qbit-text-disabled cursor-not-allowed;
+  }
+  
+  .qbit-textarea {
+    @apply qbit-input resize-y min-h-[100px];
+  }
+  
+  .qbit-select {
+    @apply qbit-input appearance-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+  }
+  
+  .qbit-checkbox {
+    @apply w-4 h-4 text-qbit-accent bg-qbit-input-bg border border-qbit-input-border rounded;
+    @apply focus:ring-qbit-accent focus:ring-2 focus:ring-offset-0;
+  }
+  
+  .qbit-radio {
+    @apply w-4 h-4 text-qbit-accent bg-qbit-input-bg border border-qbit-input-border;
+    @apply focus:ring-qbit-accent focus:ring-2 focus:ring-offset-0;
+  }
+  
+  /* Card component styles */
+  .qbit-card {
+    @apply bg-qbit-bg-secondary border border-qbit-border-primary rounded-lg shadow-qbit;
+    @apply transition-all duration-200;
+  }
+  
+  .qbit-card:hover {
+    @apply border-qbit-border-secondary shadow-qbit-lg;
+  }
+  
+  .qbit-card-header {
+    @apply p-6 border-b border-qbit-border-primary;
+  }
+  
+  .qbit-card-body {
+    @apply p-6;
+  }
+  
+  .qbit-card-footer {
+    @apply p-6 border-t border-qbit-border-primary bg-qbit-bg-tertiary rounded-b-lg;
+  }
+  
+  /* Alert/notification styles */
+  .qbit-alert {
+    @apply p-4 rounded-lg border-l-4;
+  }
+  
+  .qbit-alert-info {
+    @apply bg-blue-900/20 border-blue-500 text-blue-300;
+  }
+  
+  .qbit-alert-success {
+    @apply bg-green-900/20 border-qbit-success text-qbit-success-light;
+  }
+  
+  .qbit-alert-warning {
+    @apply bg-yellow-900/20 border-qbit-warning text-qbit-warning-light;
+  }
+  
+  .qbit-alert-error {
+    @apply bg-red-900/20 border-qbit-error text-qbit-error-light;
+  }
+  
+  /* Badge styles */
+  .qbit-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .qbit-badge-primary {
+    @apply bg-qbit-accent/20 text-qbit-accent-light;
+  }
+  
+  .qbit-badge-success {
+    @apply bg-qbit-success/20 text-qbit-success-light;
+  }
+  
+  .qbit-badge-warning {
+    @apply bg-qbit-warning/20 text-qbit-warning-light;
+  }
+  
+  .qbit-badge-error {
+    @apply bg-qbit-error/20 text-qbit-error-light;
+  }
+  
+  /* Loading spinner */
+  .qbit-spinner {
+    @apply inline-block animate-spin rounded-full border-2 border-solid border-current border-r-transparent;
+  }
+  
+  /* Progress bar */
+  .qbit-progress {
+    @apply w-full bg-qbit-bg-tertiary rounded-full h-2;
+  }
+  
+  .qbit-progress-bar {
+    @apply bg-qbit-accent h-2 rounded-full transition-all duration-300 ease-out;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-pulse-subtle {
+    animation: pulseSubtle 2s ease-in-out infinite;
+  }
+  
+  /* Utility classes for common patterns */
+  .qbit-focus {
+    @apply focus:outline-none focus:ring-2 focus:ring-qbit-accent focus:ring-offset-2 focus:ring-offset-qbit-bg-primary;
+  }
+  
+  .qbit-transition {
+    @apply transition-all duration-200 ease-out;
+  }
+}
+
+/* Keyframes for custom animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
