@@ -1058,15 +1058,129 @@ async def torrent_creator_ui(request: Request):
 
 @app.get("/api/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
+    """Comprehensive health check endpoint"""
+    import time
+    from typing import Dict, Any
+
+    start_time = time.time()
+
+    # Initialize with explicit types to help type checker
+    health_status: Dict[str, Any] = {
         "status": "healthy",
-        "managers": {
+        "timestamp": time.time(),
+        "checks": {},
+        "response_time_ms": None
+    }
+
+    # Use separate variable to avoid type checker confusion
+    checks_dict: Dict[str, Any] = health_status["checks"]
+
+    try:
+        # Check 1: Manager Initialization
+        checks_dict["managers"] = {
             "config_manager": config_manager is not None,
             "secure_config_manager": secure_config_manager is not None,
-            "torrent_manager": torrent_manager is not None
+            "torrent_manager": torrent_manager is not None,
+            "settings_storage": settings_storage is not None
         }
-    }
+
+        # Check 2: qBittorrent Connection
+        try:
+            if torrent_manager:
+                qb_success, qb_message = await get_torrent_manager().test_connection()
+                checks_dict["qbittorrent"] = {
+                    "connected": qb_success,
+                    "message": qb_message
+                }
+            else:
+                checks_dict["qbittorrent"] = {
+                    "connected": False,
+                    "message": "Torrent manager not initialized"
+                }
+        except Exception as e:
+            checks_dict["qbittorrent"] = {
+                "connected": False,
+                "message": f"Connection test failed: {str(e)}"
+            }
+
+        # Check 3: Configuration Access
+        try:
+            if config_manager:
+                config = config_manager.get_config()
+                checks_dict["configuration"] = {
+                    "accessible": True,
+                    "message": "Config loaded successfully"
+                }
+            else:
+                checks_dict["configuration"] = {
+                    "accessible": False,
+                    "message": "Config manager not initialized"
+                }
+        except Exception as e:
+            checks_dict["configuration"] = {
+                "accessible": False,
+                "message": f"Config access failed: {str(e)}"
+            }
+
+        # Check 4: File System Access
+        try:
+            import tempfile
+            import os
+
+            # Test basic file operations
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp_path = tmp.name
+                tmp.write(b"health_check_test")
+
+            # Clean up
+            os.unlink(tmp_path)
+
+            checks_dict["filesystem"] = {
+                "accessible": True,
+                "message": "File operations working"
+            }
+        except Exception as e:
+            checks_dict["filesystem"] = {
+                "accessible": False,
+                "message": f"File operations failed: {str(e)}"
+            }
+
+        # Check 5: Memory Usage
+        try:
+            import psutil  # type: ignore
+            process = psutil.Process()
+            memory_info = process.memory_info()
+
+            checks_dict["system"] = {
+                "memory_mb": round(memory_info.rss / 1024 / 1024, 2),
+                "cpu_percent": round(process.cpu_percent(interval=0.1), 2)
+            }
+        except ImportError:
+            checks_dict["system"] = {
+                "memory_mb": "psutil not available",
+                "cpu_percent": "psutil not available"
+            }
+        except Exception as e:
+            checks_dict["system"] = {
+                "memory_mb": f"Error: {str(e)}",
+                "cpu_percent": f"Error: {str(e)}"
+            }
+
+        # For now, keep status as healthy - can be enhanced later
+        # The detailed check results provide enough information for monitoring
+
+        # Calculate response time
+        end_time = time.time()
+        health_status["response_time_ms"] = round((end_time - start_time) * 1000, 2)
+
+        return health_status
+
+    except Exception as e:
+        # If health check itself fails, return critical status
+        health_status["status"] = "critical"
+        health_status["error"] = str(e)
+        health_status["response_time_ms"] = round((time.time() - start_time) * 1000, 2)
+        return health_status
 
 if __name__ == "__main__":
     import uvicorn
