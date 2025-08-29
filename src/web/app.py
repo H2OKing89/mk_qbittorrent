@@ -372,7 +372,7 @@ async def get_credential_status():
 async def store_credential(request: CredentialRequest):
     """Store a secure credential"""
     try:
-        success = secure_config_manager.store_secure_value(request.key, request.value)
+        success = get_secure_config_manager().store_secure_value(request.key, request.value)
         
         if success:
             return {
@@ -488,7 +488,7 @@ async def download_torrent_file(task_id: str):
 async def test_qbittorrent_connection():
     """Test qBittorrent connection"""
     try:
-        success, message = await torrent_manager.test_connection()
+        success, message = await get_torrent_manager().test_connection()
         
         return {
             "success": success,
@@ -866,7 +866,7 @@ async def browse_qbittorrent_directory(request: dict):
         ensure_managers_initialized()
         
         path = request.get("path", "/")
-        result = await torrent_manager.browse_qbittorrent_directory(path)
+        result = await get_torrent_manager().browse_qbittorrent_directory(path)
         
         return result
         
@@ -881,7 +881,7 @@ async def scan_qbittorrent_path(request: dict):
         ensure_managers_initialized()
         
         path = request.get("path", "/")
-        result = await torrent_manager.scan_qbittorrent_path(path)
+        result = await get_torrent_manager().scan_qbittorrent_path(path)
         
         return result
         
@@ -895,7 +895,7 @@ async def get_qbittorrent_default_paths():
     try:
         ensure_managers_initialized()
         
-        paths = await torrent_manager.get_qbittorrent_default_paths()
+        paths = await get_torrent_manager().get_qbittorrent_default_paths()
         
         return {
             "success": True,
@@ -917,7 +917,7 @@ async def analyze_qbittorrent_path(request: dict):
         include_size = request.get("includeSize", True)
         recursive = request.get("recursive", True)
         
-        result = await torrent_manager.analyze_qbittorrent_path(
+        result = await get_torrent_manager().analyze_qbittorrent_path(
             path=path, 
             include_size=include_size, 
             recursive=recursive
@@ -938,7 +938,7 @@ async def calculate_optimal_piece_size(request: dict):
         
         target_pieces = request.get("targetPieces", 2500)
         
-        result = await torrent_manager.calculate_optimal_piece_size(
+        result = await get_torrent_manager().calculate_optimal_piece_size(
             path=path,
             target_pieces=target_pieces
         )
@@ -960,7 +960,7 @@ async def unified_browse_directory(request: dict):
         
         if mode == "qbittorrent":
             # Use qBittorrent API browsing
-            result = await torrent_manager.browse_qbittorrent_directory(path)
+            result = await get_torrent_manager().browse_qbittorrent_directory(path)
             return result
         else:
             # Use legacy local filesystem browsing (placeholder)
@@ -987,7 +987,7 @@ async def unified_scan_path(request: dict):
         
         if mode == "qbittorrent":
             # Use qBittorrent API scanning
-            result = await torrent_manager.scan_qbittorrent_path(path)
+            result = await get_torrent_manager().scan_qbittorrent_path(path)
             return result
         else:
             # Use legacy local filesystem scanning
