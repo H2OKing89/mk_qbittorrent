@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 from qbittorrentapi import exceptions as qba_exc
 
+# Note: Import from web.models is acceptable here since qbit_browsing is a utility
+# used by web modules but doesn't create a circular dependency in practice.
 from ..web.models import (
     QBitDirectoryEntry, 
     QBitBrowseResponse, 

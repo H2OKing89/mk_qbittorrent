@@ -19,8 +19,9 @@ while true; do
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
     if [ "$HTTP_STATUS" = "200" ]; then
-        STATUS=$(echo "$JSON_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['status'])" 2>/dev/null || echo "unknown")
-        RESPONSE_TIME=$(echo "$JSON_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('response_time_ms', 'N/A'))" 2>/dev/null || echo "N/A")
+        read STATUS RESPONSE_TIME < <(echo "$JSON_RESPONSE" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('status', 'unknown'), d.get('response_time_ms', 'N/A'))" 2>/dev/null || echo "unknown N/A")
+        STATUS=${STATUS:-unknown}
+        RESPONSE_TIME=${RESPONSE_TIME:-N/A}
 
         case $STATUS in
             "healthy")

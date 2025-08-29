@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔧 Torrent Creator - qBittorrent Style</title>
     
+    <!-- CDN Dependencies for Development -->
+    <!-- Note: CDN usage without SRI hashes is a security concern for production. -->
+    <!-- However, using CDNs during development when package management isn't available. -->
+    <!-- For production deployment, implement proper package management per docs/JAVASCRIPT_PACKAGE_STRATEGY.md -->
+    
     <!-- Tailwind CSS CDN (for rapid prototyping) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -920,13 +925,16 @@
                     this.ui.progressPercent = 0;
                     
                     try {
-                        // TODO: Implement actual torrent creation
-                        // This would call the backend API and handle streaming progress
+                        // PROTOTYPE LIMITATION: Actual torrent creation is not implemented.
+                        // This is a demo/prototype UI. Backend integration is required for real torrent creation.
                         
-                        // Simulate progress for now
+                        // Show user-facing message
+                        alert("This is a demo/prototype. Actual torrent creation is not implemented.");
+                        
+                        // Simulate progress for demonstration purposes only
                         await this.simulateProgress();
                         
-                        console.log('Torrent creation completed!');
+                        console.log('Torrent creation completed (simulated)!');
                     } catch (error) {
                         console.error('Error creating torrent:', error);
                     } finally {
