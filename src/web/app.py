@@ -28,6 +28,11 @@ from src.core.config_manager import ConfigManager, AppConfig
 from src.core.torrent_manager import TorrentManager
 from src.utils.credential_manager import CredentialManager, SecureConfigManager
 from src.utils.settings_storage import SettingsStorageManager, SettingsValidator
+from src.web.models import (
+    NavigationMode, 
+    QBitBrowseRequest, QBitBrowseResponse,
+    UnifiedBrowseRequest, UnifiedBrowseResponse
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -367,7 +372,7 @@ async def get_credential_status():
 async def store_credential(request: CredentialRequest):
     """Store a secure credential"""
     try:
-        success = secure_config_manager.store_secure_value(request.key, request.value)
+        success = get_secure_config_manager().store_secure_value(request.key, request.value)
         
         if success:
             return {
@@ -483,7 +488,7 @@ async def download_torrent_file(task_id: str):
 async def test_qbittorrent_connection():
     """Test qBittorrent connection"""
     try:
-        success, message = await torrent_manager.test_connection()
+        success, message = await get_torrent_manager().test_connection()
         
         return {
             "success": success,
@@ -851,20 +856,331 @@ async def create_torrent_background_enhanced(
         active_jobs[job_id]["error"] = str(e)
 
 # =============================================================================
+# NEW QBITTORRENT BROWSING API
+# =============================================================================
+
+@app.post("/api/qbittorrent/browse")
+async def browse_qbittorrent_directory(request: dict):
+    """Browse directories using qBittorrent API"""
+    try:
+        ensure_managers_initialized()
+        
+        path = request.get("path", "/")
+        result = await get_torrent_manager().browse_qbittorrent_directory(path)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error browsing qBittorrent directory {path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/qbittorrent/scan")
+async def scan_qbittorrent_path(request: dict):
+    """Scan a path using qBittorrent API"""
+    try:
+        ensure_managers_initialized()
+        
+        path = request.get("path", "/")
+        result = await get_torrent_manager().scan_qbittorrent_path(path)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error scanning qBittorrent path {path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/qbittorrent/default-paths")
+async def get_qbittorrent_default_paths():
+    """Get default paths available in qBittorrent"""
+    try:
+        ensure_managers_initialized()
+        
+        paths = await get_torrent_manager().get_qbittorrent_default_paths()
+        
+        return {
+            "success": True,
+            "paths": paths,
+            "navigation_mode": "qbittorrent"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting qBittorrent default paths: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/qbittorrent/analyze")
+async def analyze_qbittorrent_path(request: dict):
+    """Deep analysis of a path with recursive size calculation"""
+    path = request.get("path", "/")  # Define path early for error handling
+    try:
+        ensure_managers_initialized()
+        
+        include_size = request.get("includeSize", True)
+        recursive = request.get("recursive", True)
+        
+        result = await get_torrent_manager().analyze_qbittorrent_path(
+            path=path, 
+            include_size=include_size, 
+            recursive=recursive
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error analyzing qBittorrent path {path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/qbittorrent/calculate-pieces")
+async def calculate_optimal_piece_size(request: dict):
+    """Calculate optimal piece size for a given path using intelligent algorithms"""
+    path = request.get("path", "/")
+    try:
+        ensure_managers_initialized()
+        
+        target_pieces = request.get("targetPieces", 2500)
+        
+        result = await get_torrent_manager().calculate_optimal_piece_size(
+            path=path,
+            target_pieces=target_pieces
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error calculating piece size for path {path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/unified/browse")
+async def unified_browse_directory(request: dict):
+    """Unified directory browsing (supports both local and qBittorrent modes)"""
+    try:
+        ensure_managers_initialized()
+        
+        path = request.get("path", "/")
+        mode = request.get("mode", "qbittorrent")  # Default to qBittorrent mode
+        
+        if mode == "qbittorrent":
+            # Use qBittorrent API browsing
+            result = await get_torrent_manager().browse_qbittorrent_directory(path)
+            return result
+        else:
+            # Use legacy local filesystem browsing (placeholder)
+            return {
+                "success": False,
+                "error": "Local browsing mode not yet implemented in unified API",
+                "current_path": path,
+                "entries": [],
+                "navigation_mode": "local"
+            }
+        
+    except Exception as e:
+        logger.error(f"Error in unified browse for path {path} with mode {mode}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/unified/scan")
+async def unified_scan_path(request: dict):
+    """Unified path scanning (supports both local and qBittorrent modes)"""
+    try:
+        ensure_managers_initialized()
+        
+        path = request.get("path", "/")
+        mode = request.get("mode", "qbittorrent")  # Default to qBittorrent mode
+        
+        if mode == "qbittorrent":
+            # Use qBittorrent API scanning
+            result = await get_torrent_manager().scan_qbittorrent_path(path)
+            return result
+        else:
+            # Use legacy local filesystem scanning
+            # Use existing local scanning logic
+            from src.utils.file_utils import get_folder_info, validate_folder_for_torrent
+            
+            path_obj = Path(path)
+            
+            # Basic validation
+            if not path_obj.exists():
+                return {
+                    "success": True,
+                    "path": path,
+                    "exists": False,
+                    "is_directory": False,
+                    "file_count": 0,
+                    "total_bytes": 0,
+                    "navigation_mode": "local",
+                    "error": "Path does not exist"
+                }
+            
+            # Get folder info
+            info = get_folder_info(path_obj)
+            
+            if info.get("error"):
+                return {
+                    "success": True,
+                    "path": path,
+                    "exists": True,
+                    "is_directory": False,
+                    "file_count": 0,
+                    "total_bytes": 0,
+                    "navigation_mode": "local",
+                    "error": str(info["error"])
+                }
+            
+            return {
+                "success": True,
+                "path": path,
+                "exists": True,
+                "is_directory": not info.get("is_file", False),
+                "file_count": info["file_count"],
+                "total_bytes": info["total_size"],
+                "navigation_mode": "local"
+            }
+        
+    except Exception as e:
+        logger.error(f"Error in unified scan for path {path} with mode {mode}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# =============================================================================
+# WEB UI ROUTES
+# =============================================================================
+
+@app.get("/")
+async def root(request: Request):
+    """Serve the main torrent creator UI"""
+    return templates.TemplateResponse("torrent_creator.html", {"request": request})
+
+@app.get("/creator")
+async def torrent_creator_ui(request: Request):
+    """Serve the torrent creator UI (alternative route)"""
+    return templates.TemplateResponse("torrent_creator.html", {"request": request})
+
+# =============================================================================
 # HEALTH CHECK
 # =============================================================================
 
 @app.get("/api/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
+    """Comprehensive health check endpoint"""
+    import time
+    from typing import Dict, Any
+
+    start_time = time.time()
+
+    # Initialize with explicit types to help type checker
+    health_status: Dict[str, Any] = {
         "status": "healthy",
-        "managers": {
+        "timestamp": time.time(),
+        "checks": {},
+        "response_time_ms": None
+    }
+
+    # Use separate variable to avoid type checker confusion
+    checks_dict: Dict[str, Any] = health_status["checks"]
+
+    try:
+        # Check 1: Manager Initialization
+        checks_dict["managers"] = {
             "config_manager": config_manager is not None,
             "secure_config_manager": secure_config_manager is not None,
-            "torrent_manager": torrent_manager is not None
+            "torrent_manager": torrent_manager is not None,
+            "settings_storage": settings_storage is not None
         }
-    }
+
+        # Check 2: qBittorrent Connection
+        try:
+            if torrent_manager:
+                qb_success, qb_message = await get_torrent_manager().test_connection()
+                checks_dict["qbittorrent"] = {
+                    "connected": qb_success,
+                    "message": qb_message
+                }
+            else:
+                checks_dict["qbittorrent"] = {
+                    "connected": False,
+                    "message": "Torrent manager not initialized"
+                }
+        except Exception as e:
+            checks_dict["qbittorrent"] = {
+                "connected": False,
+                "message": f"Connection test failed: {str(e)}"
+            }
+
+        # Check 3: Configuration Access
+        try:
+            if config_manager:
+                config = config_manager.get_config()
+                checks_dict["configuration"] = {
+                    "accessible": True,
+                    "message": "Config loaded successfully"
+                }
+            else:
+                checks_dict["configuration"] = {
+                    "accessible": False,
+                    "message": "Config manager not initialized"
+                }
+        except Exception as e:
+            checks_dict["configuration"] = {
+                "accessible": False,
+                "message": f"Config access failed: {str(e)}"
+            }
+
+        # Check 4: File System Access
+        try:
+            import tempfile
+            import os
+
+            # Test basic file operations
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp_path = tmp.name
+                tmp.write(b"health_check_test")
+
+            # Clean up
+            os.unlink(tmp_path)
+
+            checks_dict["filesystem"] = {
+                "accessible": True,
+                "message": "File operations working"
+            }
+        except Exception as e:
+            checks_dict["filesystem"] = {
+                "accessible": False,
+                "message": f"File operations failed: {str(e)}"
+            }
+
+        # Check 5: Memory Usage
+        try:
+            import psutil  # type: ignore
+            process = psutil.Process()
+            memory_info = process.memory_info()
+
+            checks_dict["system"] = {
+                "memory_mb": round(memory_info.rss / 1024 / 1024, 2),
+                "cpu_percent": round(process.cpu_percent(interval=0.1), 2)
+            }
+        except ImportError:
+            checks_dict["system"] = {
+                "memory_mb": "psutil not available",
+                "cpu_percent": "psutil not available"
+            }
+        except Exception as e:
+            checks_dict["system"] = {
+                "memory_mb": f"Error: {str(e)}",
+                "cpu_percent": f"Error: {str(e)}"
+            }
+
+        # For now, keep status as healthy - can be enhanced later
+        # The detailed check results provide enough information for monitoring
+
+        # Calculate response time
+        end_time = time.time()
+        health_status["response_time_ms"] = round((end_time - start_time) * 1000, 2)
+
+        return health_status
+
+    except Exception as e:
+        # If health check itself fails, return critical status
+        health_status["status"] = "critical"
+        health_status["error"] = str(e)
+        health_status["response_time_ms"] = round((time.time() - start_time) * 1000, 2)
+        return health_status
 
 if __name__ == "__main__":
     import uvicorn

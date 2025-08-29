@@ -678,3 +678,601 @@ class TorrentManager:
                 "error": str(e),
                 "torrent_creator_supported": False,
             }
+
+    # ========================================================================
+    # NEW QBITTORRENT BROWSING METHODS
+    # ========================================================================
+
+    async def browse_qbittorrent_directory(self, path: str = "/") -> Dict[str, Any]:
+        """
+        Browse a directory using qBittorrent's API
+        
+        Args:
+            path: Directory path to browse (from qBittorrent's perspective)
+            
+        Returns:
+            Dictionary with directory contents and metadata
+        """
+        try:
+            client = await self._get_qbit_client()
+            
+            # Normalize path for qBittorrent
+            normalized_path = self._normalize_qbit_path(path)
+            
+            try:
+                # Use qBittorrent's directory browsing API
+                directory_contents = client.app_get_directory_content(normalized_path)
+            except qba_exc.NotFound404Error:
+                return {
+                    "success": False,
+                    "error": f"Directory not found or not accessible: {normalized_path}",
+                    "current_path": normalized_path,
+                    "entries": []
+                }
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": f"qBittorrent API error: {str(e)}",
+                    "current_path": normalized_path,
+                    "entries": []
+                }
+            
+            # Process directory contents
+            entries = []
+            for item in directory_contents:
+                item_str = str(item)
+                is_directory = item_str.endswith('/')
+                
+                # Remove trailing slash for processing
+                clean_name = item_str.rstrip('/')
+                
+                # Build full path
+                if normalized_path.endswith('/'):
+                    full_path = f"{normalized_path}{clean_name}"
+                else:
+                    full_path = f"{normalized_path}/{clean_name}"
+                
+                entries.append({
+                    "name": clean_name,
+                    "path": full_path,
+                    "is_directory": is_directory,
+                    "display_name": f"{clean_name}/" if is_directory else clean_name
+                })
+            
+            # Sort entries: directories first, then files, both alphabetically
+            entries.sort(key=lambda x: (not x["is_directory"], x["name"].lower()))
+            
+            # Calculate parent path
+            parent_path = self._get_qbit_parent_path(normalized_path)
+            
+            return {
+                "success": True,
+                "current_path": normalized_path,
+                "parent_path": parent_path,
+                "entries": entries,
+                "total_entries": len(entries),
+                "navigation_mode": "qbittorrent"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Unexpected error browsing directory: {str(e)}",
+                "current_path": path,
+                "entries": []
+            }
+
+    async def scan_qbittorrent_path(self, path: str) -> Dict[str, Any]:
+        """
+        Scan a path using qBittorrent's API to get metadata
+        
+        Args:
+            path: Path to scan
+            
+        Returns:
+            Dictionary with path metadata
+        """
+        try:
+            client = await self._get_qbit_client()
+            
+            # First, try to browse the path as a directory
+            browse_result = await self.browse_qbittorrent_directory(path)
+            
+            if browse_result["success"]:
+                # It's a directory
+                file_count = len([e for e in browse_result["entries"] if not e["is_directory"]])
+                dir_count = len([e for e in browse_result["entries"] if e["is_directory"]])
+                
+                return {
+                    "success": True,
+                    "path": path,
+                    "exists": True,
+                    "is_directory": True,
+                    "file_count": file_count,
+                    "directory_count": dir_count,
+                    "total_entries": len(browse_result["entries"]),
+                    "navigation_mode": "qbittorrent",
+                    # Note: qBittorrent directory listing doesn't provide size info
+                    "total_bytes": 0,  # Would need recursive scan
+                    "size_note": "Size calculation requires recursive scan"
+                }
+            else:
+                # Try to browse parent to see if this is a file
+                parent_path = self._get_qbit_parent_path(path)
+                if parent_path:
+                    parent_browse = await self.browse_qbittorrent_directory(parent_path)
+                    if parent_browse["success"]:
+                        filename = os.path.basename(path)
+                        for entry in parent_browse["entries"]:
+                            if entry["name"] == filename and not entry["is_directory"]:
+                                return {
+                                    "success": True,
+                                    "path": path,
+                                    "exists": True,
+                                    "is_directory": False,
+                                    "file_count": 1,
+                                    "total_bytes": 0,  # qBittorrent doesn't provide file sizes in listing
+                                    "navigation_mode": "qbittorrent",
+                                    "size_note": "File size not available from directory listing"
+                                }
+                
+                # Path doesn't exist or isn't accessible
+                return {
+                    "success": True,
+                    "path": path,
+                    "exists": False,
+                    "is_directory": False,
+                    "file_count": 0,
+                    "total_bytes": 0,
+                    "navigation_mode": "qbittorrent",
+                    "error": browse_result.get("error", "Path not found")
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "path": path,
+                "exists": False,
+                "is_directory": False,
+                "file_count": 0,
+                "total_bytes": 0,
+                "navigation_mode": "qbittorrent",
+                "error": f"Error scanning path: {str(e)}"
+            }
+
+    async def get_qbittorrent_default_paths(self) -> List[str]:
+        """
+        Get commonly used default paths from qBittorrent
+        
+        Returns:
+            List of default paths to offer in UI
+        """
+        try:
+            client = await self._get_qbit_client()
+            default_paths = ["/"]
+            
+            # Try to get qBittorrent's default save path
+            try:
+                default_save_path = client.app_default_save_path()
+                if default_save_path and default_save_path != "/" and default_save_path not in default_paths:
+                    default_paths.append(default_save_path)
+            except Exception as e:
+                print(f"Could not get default save path: {e}")
+            
+            # Try common container paths
+            common_paths = ["/data", "/downloads", "/media", "/mnt", "/home"]
+            for common_path in common_paths:
+                try:
+                    browse_result = await self.browse_qbittorrent_directory(common_path)
+                    if browse_result["success"] and common_path not in default_paths:
+                        default_paths.append(common_path)
+                except Exception:
+                    pass  # Path not accessible, skip it
+            
+            return default_paths
+            
+        except Exception as e:
+            print(f"Error getting default paths: {e}")
+            return ["/"]
+
+    def _normalize_qbit_path(self, path: str) -> str:
+        """Normalize a path for qBittorrent API"""
+        if not path:
+            return "/"
+        
+        # Ensure path starts with /
+        if not path.startswith('/'):
+            path = f"/{path}"
+        
+        # Remove double slashes
+        while '//' in path:
+            path = path.replace('//', '/')
+        
+        # Don't add trailing slash for root
+        if path != "/" and path.endswith('/'):
+            path = path.rstrip('/')
+        
+        return path
+
+    def _get_qbit_parent_path(self, path: str) -> Optional[str]:
+        """Get parent directory path for qBittorrent"""
+        if not path or path == "/":
+            return None
+        
+        parent = str(Path(path).parent)
+        if parent == path:  # Already at root
+            return None
+        
+        return parent if parent != "." else "/"
+
+    async def analyze_qbittorrent_path(self, path: str, include_size: bool = True, recursive: bool = True) -> Dict[str, Any]:
+        """
+        Deep analysis of a path with optional recursive size calculation
+        
+        Args:
+            path: Path to analyze
+            include_size: Whether to calculate size information
+            recursive: Whether to scan recursively for size calculation
+            
+        Returns:
+            Dictionary with comprehensive path analysis
+        """
+        try:
+            client = await self._get_qbit_client()
+            
+            # Start with basic path scan
+            scan_result = await self.scan_qbittorrent_path(path)
+            
+            if not scan_result.get("success"):
+                return scan_result
+            
+            # Enhanced analysis starts here
+            analysis = {
+                "success": True,
+                "path": path,
+                "exists": scan_result.get("exists", False),
+                "is_directory": scan_result.get("is_directory", False),
+                "basic_file_count": scan_result.get("file_count", 0),
+                "navigation_mode": "qbittorrent"
+            }
+            
+            if include_size and scan_result.get("is_directory") and recursive:
+                # Perform recursive size calculation
+                try:
+                    recursive_stats = await self._calculate_recursive_stats(client, path)
+                    analysis.update({
+                        "total_bytes": recursive_stats.get("total_bytes", 0),
+                        "total_file_count": recursive_stats.get("file_count", 0),
+                        "total_directory_count": recursive_stats.get("directory_count", 0),
+                        "max_depth": recursive_stats.get("max_depth", 0),
+                        "largest_file": recursive_stats.get("largest_file"),
+                        "scan_duration_ms": recursive_stats.get("scan_duration_ms", 0)
+                    })
+                except Exception as e:
+                    print(f"Warning: Could not calculate recursive stats: {e}")
+                    analysis.update({
+                        "total_bytes": 0,
+                        "total_file_count": scan_result.get("file_count", 0),
+                        "size_calculation_error": str(e)
+                    })
+            else:
+                # Basic stats only
+                analysis.update({
+                    "total_bytes": 0,
+                    "total_file_count": scan_result.get("file_count", 0),
+                    "size_note": "Recursive size calculation disabled"
+                })
+            
+            return analysis
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "path": path,
+                "error": f"Path analysis failed: {str(e)}",
+                "navigation_mode": "qbittorrent"
+            }
+
+    async def _calculate_recursive_stats(self, client, base_path: str, max_depth: int = 10) -> Dict[str, Any]:
+        """
+        Calculate recursive directory statistics using qBittorrent API
+        
+        Args:
+            client: qBittorrent client
+            base_path: Base directory to scan
+            max_depth: Maximum recursion depth to prevent infinite loops
+            
+        Returns:
+            Dictionary with recursive statistics
+        """
+        import time
+        start_time = time.time()
+        
+        stats = {
+            "total_bytes": 0,
+            "file_count": 0,
+            "directory_count": 0,
+            "max_depth": 0,
+            "largest_file": None,
+            "scan_duration_ms": 0
+        }
+        
+        # Queue for breadth-first traversal: (path, depth)
+        queue = [(base_path, 0)]
+        visited = set()
+        
+        while queue and len(visited) < 1000:  # Limit to prevent runaway scans
+            current_path, depth = queue.pop(0)
+            
+            if current_path in visited or depth > max_depth:
+                continue
+                
+            visited.add(current_path)
+            current_max_depth = stats["max_depth"]
+            if isinstance(current_max_depth, int):
+                stats["max_depth"] = max(current_max_depth, depth)
+            else:
+                stats["max_depth"] = depth
+            
+            try:
+                # Browse current directory
+                contents = client.app_get_directory_content(current_path)
+                
+                for item in contents:
+                    item_str = str(item)
+                    is_directory = item_str.endswith('/')
+                    item_name = item_str.rstrip('/')
+                    
+                    if is_directory:
+                        current_dir_count = stats["directory_count"]
+                        if isinstance(current_dir_count, int):
+                            stats["directory_count"] = current_dir_count + 1
+                        else:
+                            stats["directory_count"] = 1
+                        # Add subdirectory to queue for recursive scanning
+                        if current_path.endswith('/'):
+                            full_path = f"{current_path}{item_name}"
+                        else:
+                            full_path = f"{current_path}/{item_name}"
+                        queue.append((full_path, depth + 1))
+                    else:
+                        current_file_count = stats["file_count"]
+                        if isinstance(current_file_count, int):
+                            stats["file_count"] = current_file_count + 1
+                        else:
+                            stats["file_count"] = 1
+                        # Note: qBittorrent directory API doesn't provide file sizes
+                        # We could enhance this by getting file info, but it would be expensive
+                        
+            except Exception as e:
+                print(f"Warning: Could not scan {current_path}: {e}")
+                continue
+        
+        end_time = time.time()
+        stats["scan_duration_ms"] = int((end_time - start_time) * 1000)
+        
+        return stats
+
+    async def calculate_optimal_piece_size(self, path: str, target_pieces: int = 2500) -> Dict[str, Any]:
+        """
+        Calculate optimal piece size for a given path using intelligent algorithms
+        
+        Args:
+            path: Path to analyze for piece size calculation
+            target_pieces: Target number of pieces (default: 2500 for good ratio)
+            
+        Returns:
+            Dictionary with piece size recommendations and analysis
+        """
+        try:
+            # First get directory analysis with size information
+            analysis = await self.analyze_qbittorrent_path(path, include_size=True, recursive=True)
+            
+            if not analysis.get("success"):
+                return analysis
+            
+            total_bytes = analysis.get("total_bytes", 0)
+            file_count = analysis.get("total_file_count", 0)
+            
+            # If we couldn't get size info, estimate based on file count
+            if total_bytes == 0 and file_count > 0:
+                # Rough estimation: assume average file size based on media type
+                estimated_avg_size = 100 * 1024 * 1024  # 100MB average
+                total_bytes = file_count * estimated_avg_size
+                
+            if total_bytes == 0:
+                return {
+                    "success": False,
+                    "error": "Cannot determine content size for piece calculation",
+                    "path": path
+                }
+            
+            # Calculate intelligent piece sizes
+            piece_calculations = self._calculate_piece_size_options(total_bytes, target_pieces, file_count)
+            
+            return {
+                "success": True,
+                "path": path,
+                "total_bytes": total_bytes,
+                "file_count": file_count,
+                "target_pieces": target_pieces,
+                "recommended": piece_calculations["recommended"],
+                "options": piece_calculations["options"],
+                "analysis": piece_calculations["analysis"]
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "path": path,
+                "error": f"Piece size calculation failed: {str(e)}"
+            }
+
+    def _calculate_piece_size_options(self, total_bytes: int, target_pieces: int, file_count: int) -> Dict[str, Any]:
+        """
+        Calculate multiple piece size options with intelligent recommendations
+        
+        Args:
+            total_bytes: Total content size in bytes
+            target_pieces: Target number of pieces
+            file_count: Number of files
+            
+        Returns:
+            Dictionary with piece size options and analysis
+        """
+        # Standard piece sizes (powers of 2, from 16KB to 32MB)
+        standard_sizes = [
+            16 * 1024,      # 16 KB
+            32 * 1024,      # 32 KB  
+            64 * 1024,      # 64 KB
+            128 * 1024,     # 128 KB
+            256 * 1024,     # 256 KB
+            512 * 1024,     # 512 KB
+            1024 * 1024,    # 1 MB
+            2 * 1024 * 1024,    # 2 MB
+            4 * 1024 * 1024,    # 4 MB
+            8 * 1024 * 1024,    # 8 MB
+            16 * 1024 * 1024,   # 16 MB
+            32 * 1024 * 1024,   # 32 MB
+        ]
+        
+        # Calculate ideal piece size for target pieces
+        ideal_size = total_bytes // target_pieces
+        
+        # Find closest standard sizes
+        options = []
+        for size in standard_sizes:
+            pieces = (total_bytes + size - 1) // size  # Ceiling division
+            efficiency = self._calculate_piece_efficiency(total_bytes, size, pieces, file_count)
+            
+            options.append({
+                "piece_size_bytes": size,
+                "piece_size_human": self._format_bytes(size),
+                "piece_count": pieces,
+                "efficiency_score": efficiency["score"],
+                "waste_percentage": efficiency["waste_percentage"],
+                "network_efficiency": efficiency["network_efficiency"],
+                "recommended_for": efficiency["recommended_for"]
+            })
+        
+        # Sort by efficiency score (higher is better)
+        options.sort(key=lambda x: x["efficiency_score"], reverse=True)
+        
+        # Find best option close to target
+        recommended = options[0]  # Default to most efficient
+        for option in options:
+            piece_diff = abs(option["piece_count"] - target_pieces)
+            current_diff = abs(recommended["piece_count"] - target_pieces)
+            
+            # Prefer options closer to target if efficiency is similar
+            if piece_diff < current_diff and option["efficiency_score"] >= recommended["efficiency_score"] * 0.95:
+                recommended = option
+                break
+        
+        # Add analysis summary
+        analysis = {
+            "content_size_human": self._format_bytes(total_bytes),
+            "file_count": file_count,
+            "ideal_piece_size": self._format_bytes(ideal_size),
+            "size_category": self._categorize_content_size(total_bytes),
+            "recommendation_reason": self._get_recommendation_reason(recommended, total_bytes, file_count)
+        }
+        
+        return {
+            "recommended": recommended,
+            "options": options[:8],  # Limit to top 8 options
+            "analysis": analysis
+        }
+
+    def _calculate_piece_efficiency(self, total_bytes: int, piece_size: int, piece_count: int, file_count: int) -> Dict[str, Any]:
+        """Calculate efficiency metrics for a piece size"""
+        
+        # Calculate waste (last piece padding)
+        last_piece_bytes = total_bytes % piece_size
+        if last_piece_bytes == 0:
+            last_piece_bytes = piece_size
+        waste_bytes = piece_size - last_piece_bytes
+        waste_percentage = (waste_bytes / total_bytes) * 100
+        
+        # Network efficiency (fewer pieces = less overhead)
+        # Optimal range is 1000-4000 pieces
+        if 1000 <= piece_count <= 4000:
+            network_efficiency = 100
+        elif piece_count < 1000:
+            network_efficiency = max(50, 100 - (1000 - piece_count) * 0.05)
+        else:
+            network_efficiency = max(50, 100 - (piece_count - 4000) * 0.01)
+        
+        # File alignment efficiency (prefer piece sizes that align well with typical file sizes)
+        alignment_efficiency = 100
+        if file_count > 1:
+            avg_file_size = total_bytes / file_count
+            if piece_size > avg_file_size * 2:
+                alignment_efficiency -= 20  # Too large pieces for small files
+            elif piece_size < avg_file_size / 10:
+                alignment_efficiency -= 15  # Too small pieces for large files
+        
+        # Overall efficiency score
+        score = (
+            (100 - waste_percentage) * 0.3 +  # 30% waste minimization
+            network_efficiency * 0.5 +        # 50% network efficiency  
+            alignment_efficiency * 0.2        # 20% file alignment
+        )
+        
+        # Determine what this size is recommended for
+        recommended_for = []
+        if piece_count < 500:
+            recommended_for.append("small_content")
+        elif 1000 <= piece_count <= 2500:
+            recommended_for.append("optimal_range")
+        elif piece_count > 4000:
+            recommended_for.append("large_content")
+        
+        if waste_percentage < 1:
+            recommended_for.append("minimal_waste")
+        if network_efficiency > 95:
+            recommended_for.append("fast_download")
+        
+        return {
+            "score": round(score, 2),
+            "waste_percentage": round(waste_percentage, 2),
+            "network_efficiency": round(network_efficiency, 2),
+            "alignment_efficiency": round(alignment_efficiency, 2),
+            "recommended_for": recommended_for
+        }
+
+    def _format_bytes(self, bytes_count: int) -> str:
+        """Format bytes into human readable string"""
+        count = float(bytes_count)
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if count < 1024.0:
+                return f"{count:.1f} {unit}"
+            count /= 1024.0
+        return f"{count:.1f} PB"
+
+    def _categorize_content_size(self, total_bytes: int) -> str:
+        """Categorize content size for recommendations"""
+        if total_bytes < 100 * 1024 * 1024:  # < 100MB
+            return "small"
+        elif total_bytes < 1024 * 1024 * 1024:  # < 1GB
+            return "medium"
+        elif total_bytes < 10 * 1024 * 1024 * 1024:  # < 10GB
+            return "large"
+        else:
+            return "very_large"
+
+    def _get_recommendation_reason(self, recommended: Dict[str, Any], total_bytes: int, file_count: int) -> str:
+        """Generate human-readable recommendation reason"""
+        size_cat = self._categorize_content_size(total_bytes)
+        piece_count = recommended["piece_count"]
+        
+        if "optimal_range" in recommended.get("recommended_for", []):
+            return f"Optimal balance of {piece_count} pieces for efficient downloading and minimal waste"
+        elif "minimal_waste" in recommended.get("recommended_for", []):
+            return f"Minimizes wasted space with only {recommended['waste_percentage']:.1f}% padding"
+        elif size_cat == "small":
+            return f"Appropriate for small content to avoid excessive piece overhead"
+        elif size_cat == "very_large":
+            return f"Efficient for large content with {piece_count} manageable pieces"
+        else:
+            return f"Good balance of {piece_count} pieces for {size_cat} content size"
