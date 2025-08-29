@@ -9,13 +9,16 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 import logging
 from contextlib import asynccontextmanager
+import math
+import json
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
+from fastapi.responses import Response
 
 # Import our application modules
 import sys
@@ -39,8 +42,27 @@ settings_storage: Optional[SettingsStorageManager] = None
 
 def ensure_managers_initialized():
     """Ensure all managers are initialized, raise error if not"""
+    global config_manager, secure_config_manager, torrent_manager, settings_storage
     if any(manager is None for manager in [config_manager, secure_config_manager, torrent_manager, settings_storage]):
         raise HTTPException(status_code=503, detail="Application managers not initialized")
+
+def get_settings_storage():
+    """Get settings storage with type assertion"""
+    ensure_managers_initialized()
+    assert settings_storage is not None
+    return settings_storage
+
+def get_secure_config_manager():
+    """Get secure config manager with type assertion"""
+    ensure_managers_initialized()
+    assert secure_config_manager is not None
+    return secure_config_manager
+
+def get_torrent_manager():
+    """Get torrent manager with type assertion"""
+    ensure_managers_initialized()
+    assert torrent_manager is not None
+    return torrent_manager
 
 # Application lifecycle management
 @asynccontextmanager
@@ -109,15 +131,67 @@ class CredentialRequest(BaseModel):
 
 class TorrentCreationRequest(BaseModel):
     source_path: str
-    output_dir: Optional[str] = None
+    torrent_name: Optional[str] = None
     private: Optional[bool] = None
     start_seeding: Optional[bool] = None
     format: Optional[str] = None
     piece_size: Optional[int] = None
+    optimize_alignment: Optional[bool] = None
+    padded_file_size_limit: Optional[int] = None
     comment: Optional[str] = None
     trackers: Optional[List[str]] = None
     url_seeds: Optional[List[str]] = None
     source: Optional[str] = None
+
+# New request models for missing endpoints
+
+class ScanRequest(BaseModel):
+    path: str
+
+class ScanResponse(BaseModel):
+    totalBytes: int
+    fileCount: int
+    exists: bool
+    mode: str  # 'file' or 'folder'
+    error: Optional[str] = None
+
+class PiecesRequest(BaseModel):
+    totalBytes: int
+    desiredPieceSize: Optional[int] = None
+    target: Optional[int] = 2500
+
+class PiecesResponse(BaseModel):
+    pieceSizeBytes: int
+    pieceCount: int
+
+class CreateTorrentRequest(BaseModel):
+    """Enhanced torrent creation request matching the spec"""
+    # Path selection
+    mode: str  # 'file' or 'folder'
+    path: str
+    
+    # Piece settings
+    pieceSizeMode: str  # 'auto' or 'manual'
+    pieceSizeBytes: Optional[int] = None
+    targetPieces: int = 2500
+    
+    # Privacy and seeding
+    privateTorrent: bool = True
+    startSeeding: bool = False
+    ignoreShareRatio: bool = False
+    
+    # Alignment
+    optimizeAlignment: bool = False
+    alignThresholdBytes: Optional[int] = None
+    
+    # Trackers and web seeds
+    announceTiers: List[List[str]] = []  # [[tier1_urls], [tier2_urls]]
+    webSeeds: List[str] = []
+    
+    # Metadata
+    comment: str = ""
+    source: str = ""
+    v2Mode: str = "v1"  # 'v1', 'v2', or 'hybrid'
 
 class UserPreference(BaseModel):
     key: str
@@ -137,13 +211,13 @@ async def get_settings():
             raise HTTPException(status_code=503, detail="Application not fully initialized")
             
         # Get effective settings (all layers merged)
-        effective_settings = settings_storage.get_effective_settings()
+        effective_settings = get_settings_storage().get_effective_settings()
         
         # Get layer information
-        layer_info = settings_storage.get_layer_info()
+        layer_info = get_settings_storage().get_layer_info()
         
         # Get credential status
-        credential_status = secure_config_manager.get_credential_status()
+        credential_status = get_secure_config_manager().get_credential_status()
         
         return {
             "settings": effective_settings,
@@ -159,27 +233,19 @@ async def get_settings():
 async def get_settings_layers():
     """Get information about settings layers"""
     try:
-        return settings_storage.get_layer_info()
+        storage = get_settings_storage()
+        return storage.get_layer_info()
     except Exception as e:
         logger.error(f"Error getting settings layers: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/settings/{section}")
 async def get_settings_section(section: str):
-    """Get specific settings section with all layers applied"""
+    """Get a specific settings section"""
     try:
-        section_settings = settings_storage.get_section(section)
-        
-        if not section_settings:
-            raise HTTPException(status_code=404, detail=f"Section '{section}' not found")
-        
-        return {
-            "section": section,
-            "settings": section_settings
-        }
-            
-    except HTTPException:
-        raise
+        storage = get_settings_storage()
+        section_settings = storage.get_section(section)
+        return {"section": section, "settings": section_settings}
     except Exception as e:
         logger.error(f"Error getting settings section {section}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -197,7 +263,7 @@ async def update_settings(request: SettingsUpdateRequest):
         layer = "runtime" if not request.persist else "user"
         
         # Update settings
-        success = settings_storage.update_section(
+        success = get_settings_storage().update_section(
             section=request.section,
             settings=request.settings,
             layer=layer,
@@ -230,10 +296,10 @@ async def reset_settings(section: Optional[str] = None, layer: str = "user"):
     try:
         if section:
             # Reset specific section
-            success = settings_storage.reset_section(section, layer)
+            success = get_settings_storage().reset_section(section, layer)
         else:
             # Reset all settings in layer
-            success = settings_storage.reset_all(layer)
+            success = get_settings_storage().reset_all(layer)
         
         if not success:
             raise HTTPException(status_code=500, detail="Failed to reset settings")
@@ -253,7 +319,7 @@ async def reset_settings(section: Optional[str] = None, layer: str = "user"):
 async def apply_user_settings_to_base(section: Optional[str] = None):
     """Apply user settings to base config file (permanent change)"""
     try:
-        success = settings_storage.apply_to_base_config(section)
+        success = get_settings_storage().apply_to_base_config(section)
         
         if not success:
             raise HTTPException(status_code=500, detail="Failed to apply settings to base config")
@@ -292,7 +358,7 @@ async def validate_settings_section(section: str, settings: Dict[str, Any]):
 async def get_credential_status():
     """Get status of configured credentials"""
     try:
-        return secure_config_manager.get_credential_status()
+        return get_secure_config_manager().get_credential_status()
     except Exception as e:
         logger.error(f"Error getting credential status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -375,7 +441,7 @@ async def get_torrent_status(task_id: str):
     """Get torrent creation task status"""
     try:
         # Use TorrentManager's status tracking
-        status = await torrent_manager.get_torrent_creation_status(task_id)
+        status = await get_torrent_manager().get_torrent_creation_status(task_id)
         
         if status is None:
             raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
@@ -395,7 +461,7 @@ async def download_torrent_file(task_id: str):
         from fastapi.responses import Response
         
         # Get torrent file bytes from TorrentManager
-        torrent_bytes = await torrent_manager.get_torrent_file_bytes(task_id)
+        torrent_bytes = await get_torrent_manager().get_torrent_file_bytes(task_id)
         
         if torrent_bytes is None:
             raise HTTPException(status_code=404, detail=f"Torrent file for task {task_id} not found or not ready")
@@ -432,7 +498,7 @@ async def test_qbittorrent_connection():
 async def get_qbittorrent_info():
     """Get qBittorrent application information"""
     try:
-        info = await torrent_manager.get_qbittorrent_info()
+        info = await get_torrent_manager().get_qbittorrent_info()
         return info
     except Exception as e:
         logger.error(f"Error getting qBittorrent info: {e}")
@@ -504,7 +570,7 @@ async def refresh_torrent_manager():
             await torrent_manager.cleanup()
         
         # Get effective settings and create config object
-        effective_settings = settings_storage.get_effective_settings()
+        effective_settings = get_settings_storage().get_effective_settings()
         config = AppConfig.from_dict(effective_settings)
         
         # Create new manager with updated config
@@ -518,9 +584,9 @@ async def refresh_torrent_manager():
 async def create_torrent_background(task_id: str, request: TorrentCreationRequest):
     """Background task for torrent creation"""
     try:
-        result = await torrent_manager.create_torrent(
+        assert torrent_manager is not None
+        result = await get_torrent_manager().create_torrent(
             source_path=request.source_path,
-            output_dir=request.output_dir,
             private=request.private,
             start_seeding=request.start_seeding,
             format=request.format,
@@ -536,6 +602,253 @@ async def create_torrent_background(task_id: str, request: TorrentCreationReques
         
     except Exception as e:
         logger.error(f"Background torrent creation failed for task {task_id}: {e}")
+
+# =============================================================================
+# NEW API ENDPOINTS FOR WEB UI
+# =============================================================================
+
+@app.post("/api/scan", response_model=ScanResponse)
+async def scan_path(request: ScanRequest):
+    """Scan a file or folder path and return metadata"""
+    ensure_managers_initialized()
+    
+    try:
+        from src.utils.file_utils import get_folder_info, validate_folder_for_torrent
+        
+        path = Path(request.path)
+        
+        # Basic validation
+        if not path.exists():
+            return ScanResponse(
+                totalBytes=0,
+                fileCount=0,
+                exists=False,
+                mode="unknown",
+                error="Path does not exist"
+            )
+        
+        # Get folder info
+        info = get_folder_info(path)
+        
+        if info.get("error"):
+            return ScanResponse(
+                totalBytes=0,
+                fileCount=0,
+                exists=True,
+                mode="error",
+                error=str(info["error"])
+            )
+        
+        # Determine mode
+        mode = "file" if info.get("is_file", False) else "folder"
+        
+        return ScanResponse(
+            totalBytes=info["total_size"],
+            fileCount=info["file_count"],
+            exists=True,
+            mode=mode
+        )
+        
+    except Exception as e:
+        logger.error(f"Error scanning path {request.path}: {e}")
+        return ScanResponse(
+            totalBytes=0,
+            fileCount=0,
+            exists=False,
+            mode="error",
+            error=str(e)
+        )
+
+@app.post("/api/pieces", response_model=PiecesResponse)
+async def calculate_pieces(request: PiecesRequest):
+    """Calculate optimal piece size and piece count"""
+    try:
+        total_bytes = request.totalBytes
+        target_pieces = request.target or 2500
+        
+        if request.desiredPieceSize:
+            # Manual piece size
+            piece_size = request.desiredPieceSize
+        else:
+            # Auto piece size calculation (from spec)
+            piece_size = 64 * 1024  # Start with 64 KiB
+            max_piece_size = 16 * 1024 * 1024  # Max 16 MiB
+            
+            while (total_bytes / piece_size) > target_pieces and piece_size < max_piece_size:
+                piece_size *= 2
+        
+        # Calculate piece count
+        piece_count = math.ceil(total_bytes / piece_size)
+        
+        return PiecesResponse(
+            pieceSizeBytes=piece_size,
+            pieceCount=piece_count
+        )
+        
+    except Exception as e:
+        logger.error(f"Error calculating pieces: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Global storage for active jobs (in production, use Redis or database)
+active_jobs: Dict[str, Dict[str, Any]] = {}
+
+@app.post("/api/create-enhanced")
+async def create_torrent_enhanced(request: CreateTorrentRequest, background_tasks: BackgroundTasks):
+    """Enhanced torrent creation endpoint matching the spec"""
+    ensure_managers_initialized()
+    
+    try:
+        # Generate job ID
+        job_id = f"job_{uuid.uuid4().hex[:8]}"
+        
+        # Store job info
+        active_jobs[job_id] = {
+            "status": "starting",
+            "progress": 0,
+            "phase": "validation",
+            "request": request.dict()
+        }
+        
+        # Convert spec format to our backend format
+        # Flatten announce tiers into a single list
+        trackers = []
+        for tier in request.announceTiers:
+            trackers.extend(tier)
+        
+        # Create torrent using our existing backend
+        background_tasks.add_task(
+            create_torrent_background_enhanced,
+            job_id,
+            request.path,
+            request.privateTorrent,
+            request.startSeeding,
+            request.comment,
+            trackers,
+            request.webSeeds,
+            request.source,
+            request.pieceSizeBytes,
+            request.optimizeAlignment,
+            request.alignThresholdBytes
+        )
+        
+        return {
+            "success": True,
+            "jobId": job_id,
+            "message": "Torrent creation started",
+            "status_url": f"/api/create/stream?jobId={job_id}",
+            "job_url": f"/api/create/status/{job_id}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting enhanced torrent creation: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/create/stream")
+async def stream_torrent_progress(jobId: str):
+    """Stream torrent creation progress via SSE"""
+    
+    async def event_stream():
+        """Generate SSE events for torrent creation progress"""
+        try:
+            if jobId not in active_jobs:
+                yield f"event: error\ndata: {json.dumps({'message': 'Job not found'})}\n\n"
+                return
+            
+            # Stream job progress
+            last_status = None
+            while jobId in active_jobs:
+                job = active_jobs[jobId]
+                status = job["status"]
+                
+                # Only send updates when status changes
+                if status != last_status:
+                    if status == "scanning":
+                        yield f"event: scan\ndata: {json.dumps({'files': job.get('files', 0), 'bytes': job.get('bytes', 0)})}\n\n"
+                    elif status == "hashing":
+                        yield f"event: hash\ndata: {json.dumps({'progress': job.get('progress', 0), 'currentFile': job.get('currentFile', '')})}\n\n"
+                    elif status == "finalizing":
+                        yield f"event: finalize\ndata: {json.dumps({'pieceCount': job.get('pieceCount', 0)})}\n\n"
+                    elif status == "completed":
+                        yield f"event: done\ndata: {json.dumps(job.get('result', {}))}\n\n"
+                        break
+                    elif status == "error":
+                        yield f"event: error\ndata: {json.dumps({'message': job.get('error', 'Unknown error')})}\n\n"
+                        break
+                    
+                    last_status = status
+                
+                await asyncio.sleep(0.5)  # Poll every 500ms
+                
+        except Exception as e:
+            logger.error(f"Error in SSE stream: {e}")
+            yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )
+
+@app.get("/api/create/status/{job_id}")
+async def get_job_status(job_id: str):
+    """Get current status of a torrent creation job"""
+    if job_id not in active_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return active_jobs[job_id]
+
+async def create_torrent_background_enhanced(
+    job_id: str,
+    source_path: str,
+    private: bool,
+    start_seeding: bool,
+    comment: str,
+    trackers: List[str],
+    url_seeds: List[str],
+    source: str,
+    piece_size: Optional[int],
+    optimize_alignment: bool,
+    align_threshold: Optional[int]
+):
+    """Enhanced background task for torrent creation with progress tracking"""
+    try:
+        # Update job status
+        active_jobs[job_id]["status"] = "scanning"
+        active_jobs[job_id]["phase"] = "scanning"
+        
+        # Use our existing torrent manager
+        assert torrent_manager is not None
+        
+        result = await get_torrent_manager().create_torrent(
+            source_path=source_path,
+            private=private,
+            start_seeding=start_seeding,
+            comment=comment,
+            trackers=trackers,
+            url_seeds=url_seeds,
+            source=source,
+            piece_size=piece_size,
+            optimize_alignment=optimize_alignment,
+            padded_file_size_limit=align_threshold
+        )
+        
+        # Update job with completion
+        active_jobs[job_id]["status"] = "completed"
+        active_jobs[job_id]["result"] = result
+        
+        # Clean up job after 5 minutes
+        await asyncio.sleep(300)
+        if job_id in active_jobs:
+            del active_jobs[job_id]
+        
+    except Exception as e:
+        logger.error(f"Enhanced background torrent creation failed for job {job_id}: {e}")
+        active_jobs[job_id]["status"] = "error"
+        active_jobs[job_id]["error"] = str(e)
 
 # =============================================================================
 # HEALTH CHECK
