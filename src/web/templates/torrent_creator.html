@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Torrent Creator - qBittorrent Style</title>
+    
+    <!-- Tailwind CSS CDN (for rapid prototyping) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Heroicons for icons -->
+    <script src="https://unpkg.com/heroicons@2.0.18/24/outline/index.js"></script>
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        qbit: {
+                            dark: '#2b2b2b',
+                            darker: '#1e1e1e',
+                            accent: '#3daee9',
+                            'accent-hover': '#2980b9',
+                            success: '#27ae60',
+                            warning: '#f39c12',
+                            error: '#e74c3c',
+                            'bg-primary': '#2b2b2b',
+                            'bg-secondary': '#3c3c3c',
+                            'bg-tertiary': '#4a4a4a',
+                            'text-primary': '#ffffff',
+                            'text-secondary': '#b0b0b0',
+                            'text-muted': '#808080'
+                        }
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom Styles -->
+    <style>
+        /* qBittorrent-inspired component styles */
+        .qbit-card {
+            background-color: #3c3c3c;
+            border: 1px solid #4b5563;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+        
+        .qbit-card:hover {
+            border-color: rgba(61, 174, 233, 0.5);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .qbit-input {
+            background-color: #4a4a4a;
+            border: 1px solid #6b7280;
+            border-radius: 0.375rem;
+            color: #ffffff;
+            transition: all 0.2s ease;
+        }
+        
+        .qbit-input::placeholder {
+            color: #808080;
+        }
+        
+        .qbit-input:focus {
+            border-color: #3daee9;
+            box-shadow: 0 0 0 2px rgba(61, 174, 233, 0.25);
+            outline: none;
+        }
+        
+        .qbit-btn-primary {
+            background-color: #3daee9;
+            color: white;
+            font-weight: 500;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s ease;
+            padding: 0.5rem 1rem;
+            min-height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .qbit-btn-primary:hover:not(:disabled) {
+            background-color: #2980b9;
+        }
+        
+        .qbit-btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .qbit-btn-secondary {
+            background-color: #4a4a4a;
+            color: #ffffff;
+            border: 1px solid #6b7280;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s ease;
+            padding: 0.5rem 1rem;
+            min-height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .qbit-btn-secondary:hover {
+            background-color: #6b7280;
+        }
+        
+        .qbit-progress-bar {
+            width: 100%;
+            background-color: #4a4a4a;
+            border-radius: 9999px;
+            height: 0.625rem;
+            overflow: hidden;
+        }
+        
+        .qbit-progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, #3daee9, #27ae60);
+            transition: all 0.3s ease;
+        }
+        
+        /* Smooth transitions for Alpine.js */
+        [x-cloak] { display: none !important; }
+        
+        .fade-in-up {
+            transition: all 0.3s ease-out;
+        }
+        
+        .fade-in-up-enter {
+            opacity: 0;
+            transform: translateY(1rem);
+        }
+        
+        .fade-in-up-enter-to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* Custom checkbox styles for dark theme */
+        input[type="checkbox"] {
+            appearance: none;
+            background-color: #4a4a4a;
+            border: 1px solid #6b7280;
+            border-radius: 0.25rem;
+            width: 1rem;
+            height: 1rem;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        input[type="checkbox"]:checked {
+            background-color: #3daee9;
+            border-color: #3daee9;
+        }
+        
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            left: 1px;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        
+        input[type="checkbox"]:focus {
+            box-shadow: 0 0 0 2px rgba(61, 174, 233, 0.25);
+        }
+        
+        /* Select dropdown styles */
+        select.qbit-input {
+            cursor: pointer;
+        }
+        
+        /* Textarea styles */
+        textarea.qbit-input {
+            resize: vertical;
+            min-height: 3rem;
+        }
+    </style>
+</head>
+
+<body class="bg-qbit-darker text-qbit-text-primary font-inter min-h-screen">
+    
+    <!-- Main Application Container -->
+    <div x-data="torrentCreator()" x-cloak class="min-h-screen flex flex-col">
+        
+        <!-- Header -->
+        <header class="bg-qbit-dark border-b border-gray-600 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-qbit-accent rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold">⚡</span>
+                    </div>
+                    <h1 class="text-xl font-semibold text-qbit-text-primary">Torrent Creator</h1>
+                </div>
+                
+                <!-- Connection Status -->
+                <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 text-sm">
+                        <div class="w-2 h-2 bg-qbit-success rounded-full"></div>
+                        <span class="text-qbit-text-secondary">qBittorrent Connected</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main class="flex-1 p-6 space-y-6 max-w-5xl mx-auto w-full">
+            
+            <!-- Card 1: Select file/folder to share -->
+            <div class="qbit-card p-6">
+                <div class="mb-4">
+                    <h2 class="text-lg font-medium text-qbit-text-primary flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-qbit-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2v0"></path>
+                        </svg>
+                        Select file/folder to share
+                    </h2>
+                    <p class="text-sm text-qbit-text-muted mt-1">Choose a server path (not your browser's files)</p>
+                </div>
+                
+                <div class="space-y-4">
+                    <!-- Path Input Row -->
+                    <div class="flex space-x-3">
+                        <div class="flex-1">
+                            <input 
+                                x-model="form.path" 
+                                @input="pathChanged()"
+                                type="text" 
+                                placeholder="/data/downloads/example..."
+                                class="qbit-input w-full px-3 py-2"
+                            >
+                        </div>
+                        <button 
+                            @click="browseFile()"
+                            class="qbit-btn-secondary px-6"
+                            :disabled="ui.isScanning"
+                        >
+                            Select file
+                        </button>
+                        <button 
+                            @click="browseFolder()"
+                            class="qbit-btn-secondary px-6"
+                            :disabled="ui.isScanning"
+                        >
+                            Select folder
+                        </button>
+                    </div>
+                    
+                    <!-- Path Info -->
+                    <div x-show="form.path && form.totalBytes !== null" 
+                         x-transition:enter="fade-in-up"
+                         class="bg-qbit-bg-tertiary rounded-md p-3">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <span class="text-qbit-text-muted">Total Size:</span>
+                                <span class="ml-2 text-qbit-text-primary font-medium" x-text="formatBytes(form.totalBytes)"></span>
+                            </div>
+                            <div>
+                                <span class="text-qbit-text-muted">Files:</span>
+                                <span class="ml-2 text-qbit-text-primary font-medium" x-text="form.fileCount?.toLocaleString() || '0'"></span>
+                            </div>
+                            <div>
+                                <span class="text-qbit-text-muted">Type:</span>
+                                <span class="ml-2 text-qbit-text-primary font-medium" x-text="form.mode"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Scanning Indicator -->
+                    <div x-show="ui.isScanning" 
+                         x-transition
+                         class="flex items-center justify-center py-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-qbit-accent"></div>
+                            <span class="text-qbit-text-secondary">Scanning path...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card 2: Settings -->
+            <div class="qbit-card p-6">
+                <h2 class="text-lg font-medium text-qbit-text-primary mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-qbit-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    Settings
+                </h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Piece Size Section -->
+                    <div class="space-y-4">
+                        <h3 class="font-medium text-qbit-text-primary">Piece Size</h3>
+                        
+                        <!-- Piece Size Mode -->
+                        <div class="space-y-2">
+                            <label class="text-sm text-qbit-text-secondary">Mode:</label>
+                            <select x-model="form.pieceSizeMode" 
+                                    @change="pieceSizeModeChanged()"
+                                    class="qbit-input w-full px-3 py-2">
+                                <option value="auto">Auto</option>
+                                <option value="manual">Manual</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Manual Piece Size -->
+                        <div x-show="form.pieceSizeMode === 'manual'" 
+                             x-transition
+                             class="space-y-2">
+                            <label class="text-sm text-qbit-text-secondary">Size:</label>
+                            <select x-model="form.manualPieceSize" 
+                                    class="qbit-input w-full px-3 py-2">
+                                <option value="16384">16 KiB</option>
+                                <option value="32768">32 KiB</option>
+                                <option value="65536">64 KiB</option>
+                                <option value="131072">128 KiB</option>
+                                <option value="262144">256 KiB</option>
+                                <option value="524288">512 KiB</option>
+                                <option value="1048576">1 MiB</option>
+                                <option value="2097152">2 MiB</option>
+                                <option value="4194304">4 MiB</option>
+                                <option value="8388608">8 MiB</option>
+                                <option value="16777216">16 MiB</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Calculate Button -->
+                        <button 
+                            @click="calculatePieces()"
+                            :disabled="!canCalculate || ui.isCalculating"
+                            class="qbit-btn-primary w-full"
+                        >
+                            <span x-show="!ui.isCalculating">Calculate number of pieces</span>
+                            <span x-show="ui.isCalculating" class="flex items-center">
+                                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Calculating...
+                            </span>
+                        </button>
+                        
+                        <!-- Piece Count Display -->
+                        <div x-show="pieceCount !== null" 
+                             x-transition
+                             class="bg-qbit-bg-tertiary rounded-md p-3">
+                            <div class="space-y-1 text-sm">
+                                <div>
+                                    <span class="text-qbit-text-muted">Piece size:</span>
+                                    <span class="ml-2 text-qbit-text-primary font-medium" x-text="formatBytes(form.pieceSizeBytes)"></span>
+                                </div>
+                                <div>
+                                    <span class="text-qbit-text-muted">Piece count:</span>
+                                    <span class="ml-2 text-qbit-text-primary font-medium" x-text="pieceCount?.toLocaleString()"></span>
+                                </div>
+                                <div x-show="efficiency !== null">
+                                    <span class="text-qbit-text-muted">Efficiency:</span>
+                                    <span class="ml-2 font-medium" 
+                                          :class="efficiency >= 95 ? 'text-qbit-success' : efficiency >= 85 ? 'text-qbit-warning' : 'text-qbit-error'"
+                                          x-text="efficiency + '%'"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Privacy & Seeding Section -->
+                    <div class="space-y-4">
+                        <h3 class="font-medium text-qbit-text-primary">Privacy & Seeding</h3>
+                        
+                        <!-- Private Torrent -->
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" 
+                                   x-model="form.privateTorrent"
+                                   class="w-4 h-4 text-qbit-accent bg-qbit-bg-tertiary border-gray-500 rounded focus:ring-qbit-accent">
+                            <div>
+                                <div class="text-sm text-qbit-text-primary">Private torrent</div>
+                                <div class="text-xs text-qbit-text-muted">(Won't distribute on DHT network)</div>
+                            </div>
+                        </label>
+                        
+                        <!-- Start Seeding -->
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" 
+                                   x-model="form.startSeeding"
+                                   class="w-4 h-4 text-qbit-accent bg-qbit-bg-tertiary border-gray-500 rounded focus:ring-qbit-accent">
+                            <div>
+                                <div class="text-sm text-qbit-text-primary">Start seeding immediately</div>
+                                <div class="text-xs text-qbit-text-muted">Add to qBittorrent after creation</div>
+                            </div>
+                        </label>
+                        
+                        <!-- Ignore Share Ratio -->
+                        <label x-show="form.startSeeding" 
+                               x-transition
+                               class="flex items-center space-x-3 cursor-pointer ml-6">
+                            <input type="checkbox" 
+                                   x-model="form.ignoreShareRatio"
+                                   class="w-4 h-4 text-qbit-accent bg-qbit-bg-tertiary border-gray-500 rounded focus:ring-qbit-accent">
+                            <div>
+                                <div class="text-sm text-qbit-text-primary">Ignore share ratio limits for this torrent</div>
+                                <div class="text-xs text-qbit-text-muted">Keep seeding indefinitely</div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <!-- Alignment Section -->
+                    <div class="space-y-4">
+                        <h3 class="font-medium text-qbit-text-primary">Optimize alignment</h3>
+                        
+                        <!-- Optimize Alignment Toggle -->
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" 
+                                   x-model="form.optimizeAlignment"
+                                   class="w-4 h-4 text-qbit-accent bg-qbit-bg-tertiary border-gray-500 rounded focus:ring-qbit-accent">
+                            <div>
+                                <div class="text-sm text-qbit-text-primary">Enable alignment optimization</div>
+                                <div class="text-xs text-qbit-text-muted">Align large files to piece boundaries</div>
+                            </div>
+                        </label>
+                        
+                        <!-- Alignment Threshold -->
+                        <div x-show="form.optimizeAlignment" 
+                             x-transition
+                             class="space-y-2">
+                            <label class="text-sm text-qbit-text-secondary">Align to piece boundary for files larger than:</label>
+                            <select x-model="form.alignThresholdBytes" 
+                                    class="qbit-input w-full px-3 py-2">
+                                <option value="">Disabled</option>
+                                <option value="33554432">32 MiB</option>
+                                <option value="67108864">64 MiB</option>
+                                <option value="134217728">128 MiB</option>
+                                <option value="268435456">256 MiB</option>
+                                <option value="536870912">512 MiB</option>
+                                <option value="1073741824">1 GiB</option>
+                            </select>
+                            <p class="text-xs text-qbit-warning">⚠️ Some trackers forbid pad files</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card 3: Trackers -->
+            <div class="qbit-card p-6">
+                <h2 class="text-lg font-medium text-qbit-text-primary mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-qbit-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Tracker URLs
+                </h2>
+                
+                <div class="space-y-4">
+                    <!-- Tracker Input -->
+                    <div>
+                        <label class="block text-sm text-qbit-text-secondary mb-2">
+                            Tracker URLs (one per line, separate tiers with blank lines):
+                        </label>
+                        <textarea 
+                            x-model="form.trackerUrls"
+                            @input="validateTrackers()"
+                            rows="6"
+                            placeholder="https://tracker.example.com/announce&#10;&#10;https://backup.tracker.com/announce"
+                            class="qbit-input w-full px-3 py-2 font-mono text-sm"
+                        ></textarea>
+                    </div>
+                    
+                    <!-- Tracker Validation -->
+                    <div x-show="trackerValidation.length > 0" 
+                         x-transition
+                         class="space-y-2">
+                        <template x-for="validation in trackerValidation" :key="validation.line">
+                            <div class="flex items-center space-x-2 text-sm">
+                                <div class="w-4 h-4 flex items-center justify-center">
+                                    <svg x-show="validation.valid" class="w-4 h-4 text-qbit-success" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <svg x-show="!validation.valid" class="w-4 h-4 text-qbit-error" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <span :class="validation.valid ? 'text-qbit-text-secondary' : 'text-qbit-error'">
+                                    Line <span x-text="validation.line"></span>: <span x-text="validation.message"></span>
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Tracker Tiers Preview -->
+                    <div x-show="trackerTiers.length > 0" 
+                         x-transition
+                         class="bg-qbit-bg-tertiary rounded-md p-3">
+                        <h4 class="text-sm font-medium text-qbit-text-primary mb-2">Tracker Tiers:</h4>
+                        <template x-for="(tier, index) in trackerTiers" :key="index">
+                            <div class="mb-2">
+                                <div class="text-xs text-qbit-text-muted mb-1">
+                                    Tier <span x-text="index + 1"></span> (<span x-text="tier.length"></span> tracker<span x-text="tier.length !== 1 ? 's' : ''"></span>):
+                                </div>
+                                <template x-for="tracker in tier" :key="tracker">
+                                    <div class="text-xs text-qbit-text-secondary font-mono ml-2" x-text="tracker"></div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card 4: Advanced Settings (Collapsible) -->
+            <div class="qbit-card">
+                <button @click="ui.showAdvanced = !ui.showAdvanced" 
+                        class="w-full p-6 text-left flex items-center justify-between">
+                    <h2 class="text-lg font-medium text-qbit-text-primary flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-qbit-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+                        </svg>
+                        Advanced Settings
+                    </h2>
+                    <svg class="w-5 h-5 transition-transform duration-200" 
+                         :class="ui.showAdvanced ? 'rotate-180' : ''"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div x-show="ui.showAdvanced" 
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 transform -translate-y-2"
+                     x-transition:enter-end="opacity-100 transform translate-y-0"
+                     class="px-6 pb-6 space-y-6">
+                    
+                    <!-- Web Seed URLs -->
+                    <div>
+                        <label class="block text-sm font-medium text-qbit-text-primary mb-2">Web seed URLs:</label>
+                        <textarea 
+                            x-model="form.webSeeds"
+                            rows="3"
+                            placeholder="https://example.com/files/&#10;https://mirror.example.org/downloads/"
+                            class="qbit-input w-full px-3 py-2 font-mono text-sm"
+                        ></textarea>
+                        <div x-show="form.privateTorrent && form.webSeeds.trim()" 
+                             class="mt-2 text-xs text-qbit-warning">
+                            ⚠️ Web seeds are often forbidden on private trackers
+                        </div>
+                    </div>
+                    
+                    <!-- Comments -->
+                    <div>
+                        <label class="block text-sm font-medium text-qbit-text-primary mb-2">Comments:</label>
+                        <textarea 
+                            x-model="form.comment"
+                            rows="3"
+                            placeholder="Created with qBittorrent Torrent Creator&#10;Build: v1.0.0"
+                            class="qbit-input w-full px-3 py-2"
+                        ></textarea>
+                        <div class="mt-1 text-xs text-qbit-text-muted">
+                            <span x-text="form.comment.length"></span> characters
+                        </div>
+                    </div>
+                    
+                    <!-- Source -->
+                    <div>
+                        <label class="block text-sm font-medium text-qbit-text-primary mb-2">Source:</label>
+                        <input 
+                            x-model="form.source"
+                            type="text"
+                            placeholder="Site short name (leave blank for cross-seeding)"
+                            class="qbit-input w-full px-3 py-2"
+                        >
+                        <div class="mt-1 text-xs text-qbit-text-muted">
+                            Tracker-specific tag. Leave blank unless required for cross-seeding compatibility.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Footer: Progress & Actions -->
+        <footer class="bg-qbit-dark border-t border-gray-600 px-6 py-4">
+            <div class="max-w-5xl mx-auto">
+                
+                <!-- Summary Information -->
+                <div x-show="form.path && form.totalBytes !== null" 
+                     x-transition
+                     class="mb-4">
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <!-- Summary Chips -->
+                        <div class="bg-qbit-bg-secondary px-3 py-1 rounded-full">
+                            <span class="text-qbit-text-muted">Size:</span>
+                            <span class="text-qbit-text-primary ml-1" x-text="formatBytes(form.totalBytes)"></span>
+                        </div>
+                        <div class="bg-qbit-bg-secondary px-3 py-1 rounded-full">
+                            <span class="text-qbit-text-muted">Files:</span>
+                            <span class="text-qbit-text-primary ml-1" x-text="form.fileCount?.toLocaleString()"></span>
+                        </div>
+                        <div x-show="form.pieceSizeBytes" class="bg-qbit-bg-secondary px-3 py-1 rounded-full">
+                            <span class="text-qbit-text-muted">Piece size:</span>
+                            <span class="text-qbit-text-primary ml-1" x-text="formatBytes(form.pieceSizeBytes)"></span>
+                        </div>
+                        <div x-show="pieceCount" class="bg-qbit-bg-secondary px-3 py-1 rounded-full">
+                            <span class="text-qbit-text-muted">Pieces:</span>
+                            <span class="text-qbit-text-primary ml-1" x-text="pieceCount?.toLocaleString()"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div x-show="ui.isCreating" 
+                     x-transition
+                     class="mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-qbit-text-secondary" x-text="ui.progressPhase"></span>
+                        <span class="text-sm text-qbit-text-primary" x-text="ui.progressPercent + '%'"></span>
+                    </div>
+                    <div class="qbit-progress-bar">
+                        <div class="qbit-progress-fill" 
+                             :style="`width: ${ui.progressPercent}%`"></div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-qbit-text-muted">
+                        <template x-if="!canCreate">
+                            <span>Select a path and add tracker URLs to continue</span>
+                        </template>
+                        <template x-if="canCreate && !ui.isCreating">
+                            <span>Ready to create torrent</span>
+                        </template>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <button 
+                            x-show="ui.isCreating"
+                            @click="cancelCreation()"
+                            class="qbit-btn-secondary"
+                        >
+                            Cancel
+                        </button>
+                        
+                        <button 
+                            @click="createTorrent()"
+                            :disabled="!canCreate || ui.isCreating"
+                            class="qbit-btn-primary px-8"
+                        >
+                            <span x-show="!ui.isCreating">Create Torrent</span>
+                            <span x-show="ui.isCreating" class="flex items-center">
+                                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Creating...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </footer>
+        
+        <!-- File Browser Modal -->
+        <div x-show="ui.showFileBrowser" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+             @click.self="ui.showFileBrowser = false">
+            
+            <div class="bg-qbit-bg-secondary rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+                <div class="p-6 border-b border-gray-600">
+                    <h3 class="text-lg font-medium text-qbit-text-primary">Browse Server Files</h3>
+                    <p class="text-sm text-qbit-text-muted mt-1">Select a file or folder to create torrent from</p>
+                </div>
+                
+                <div class="flex-1 p-6 overflow-auto">
+                    <!-- File browser content would go here -->
+                    <div class="text-center text-qbit-text-muted py-8">
+                        <svg class="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2v0"></path>
+                        </svg>
+                        <p>File browser implementation coming soon...</p>
+                        <p class="text-xs mt-1">For now, enter paths manually in the input field</p>
+                    </div>
+                </div>
+                
+                <div class="p-6 border-t border-gray-600 flex justify-end space-x-3">
+                    <button @click="ui.showFileBrowser = false" class="qbit-btn-secondary">
+                        Cancel
+                    </button>
+                    <button class="qbit-btn-primary" disabled>
+                        Select
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Alpine.js Component Script -->
+    <script>
+        function torrentCreator() {
+            return {
+                // Form State
+                form: {
+                    path: '',
+                    mode: 'folder', // 'file' or 'folder'
+                    totalBytes: null,
+                    fileCount: null,
+                    
+                    pieceSizeMode: 'auto', // 'auto' or 'manual'
+                    pieceSizeBytes: null,
+                    manualPieceSize: 262144, // 256 KiB default
+                    targetPieces: 2500,
+                    
+                    privateTorrent: true,
+                    startSeeding: false,
+                    ignoreShareRatio: false,
+                    
+                    optimizeAlignment: false,
+                    alignThresholdBytes: null,
+                    
+                    trackerUrls: '',
+                    webSeeds: '',
+                    comment: '',
+                    source: ''
+                },
+                
+                // UI State
+                ui: {
+                    showAdvanced: false,
+                    isScanning: false,
+                    isCalculating: false,
+                    isCreating: false,
+                    showFileBrowser: false,
+                    progressPhase: '',
+                    progressPercent: 0
+                },
+                
+                // Computed Data
+                pieceCount: null,
+                efficiency: null,
+                trackerValidation: [],
+                trackerTiers: [],
+                
+                // Computed Properties
+                get canCalculate() {
+                    return this.form.path && this.form.totalBytes > 0;
+                },
+                
+                get canCreate() {
+                    return this.canCalculate && 
+                           this.form.trackerUrls.trim() && 
+                           this.pieceCount !== null;
+                },
+                
+                // Methods
+                pathChanged() {
+                    // Reset calculated values when path changes
+                    this.form.totalBytes = null;
+                    this.form.fileCount = null;
+                    this.pieceCount = null;
+                    this.efficiency = null;
+                    
+                    // Auto-scan if path looks complete
+                    if (this.form.path && this.form.path.startsWith('/')) {
+                        this.debouncedScan();
+                    }
+                },
+                
+                debouncedScan: this.debounce(async function() {
+                    await this.scanPath();
+                }, 1000),
+                
+                async scanPath() {
+                    if (!this.form.path) return;
+                    
+                    this.ui.isScanning = true;
+                    try {
+                        const response = await fetch('/api/qbittorrent/analyze', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                path: this.form.path,
+                                includeSize: true,
+                                recursive: true
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.form.totalBytes = data.totalBytes;
+                            this.form.fileCount = data.fileCount;
+                            this.form.mode = data.isDirectory ? 'folder' : 'file';
+                        } else {
+                            console.error('Failed to scan path:', await response.text());
+                        }
+                    } catch (error) {
+                        console.error('Error scanning path:', error);
+                    } finally {
+                        this.ui.isScanning = false;
+                    }
+                },
+                
+                pieceSizeModeChanged() {
+                    // Reset piece calculation when mode changes
+                    this.pieceCount = null;
+                    this.efficiency = null;
+                    this.form.pieceSizeBytes = null;
+                },
+                
+                async calculatePieces() {
+                    if (!this.canCalculate) return;
+                    
+                    this.ui.isCalculating = true;
+                    try {
+                        const requestData = {
+                            path: this.form.path,
+                            targetPieces: this.form.targetPieces
+                        };
+                        
+                        // Add piece size for manual mode
+                        if (this.form.pieceSizeMode === 'manual') {
+                            requestData.pieceSizeBytes = parseInt(this.form.manualPieceSize);
+                        }
+                        
+                        const response = await fetch('/api/qbittorrent/calculate-pieces', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(requestData)
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.form.pieceSizeBytes = data.pieceSizeBytes;
+                            this.pieceCount = data.pieceCount;
+                            this.efficiency = Math.round(data.efficiency || 0);
+                        } else {
+                            console.error('Failed to calculate pieces:', await response.text());
+                        }
+                    } catch (error) {
+                        console.error('Error calculating pieces:', error);
+                    } finally {
+                        this.ui.isCalculating = false;
+                    }
+                },
+                
+                validateTrackers() {
+                    const lines = this.form.trackerUrls.split('\n');
+                    this.trackerValidation = [];
+                    this.trackerTiers = [];
+                    
+                    let currentTier = [];
+                    let lineNumber = 1;
+                    
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        
+                        if (trimmed === '') {
+                            // Empty line - start new tier
+                            if (currentTier.length > 0) {
+                                this.trackerTiers.push([...currentTier]);
+                                currentTier = [];
+                            }
+                        } else {
+                            // Validate URL
+                            const isValid = this.isValidTrackerUrl(trimmed);
+                            this.trackerValidation.push({
+                                line: lineNumber,
+                                valid: isValid,
+                                message: isValid ? 'Valid tracker URL' : 'Invalid URL format'
+                            });
+                            
+                            if (isValid) {
+                                currentTier.push(trimmed);
+                            }
+                        }
+                        
+                        lineNumber++;
+                    }
+                    
+                    // Add final tier
+                    if (currentTier.length > 0) {
+                        this.trackerTiers.push(currentTier);
+                    }
+                },
+                
+                isValidTrackerUrl(url) {
+                    try {
+                        const parsed = new URL(url);
+                        return ['http:', 'https:', 'udp:'].includes(parsed.protocol);
+                    } catch {
+                        return false;
+                    }
+                },
+                
+                browseFile() {
+                    this.ui.showFileBrowser = true;
+                    // TODO: Implement file browser
+                },
+                
+                browseFolder() {
+                    this.ui.showFileBrowser = true;
+                    // TODO: Implement folder browser
+                },
+                
+                async createTorrent() {
+                    if (!this.canCreate) return;
+                    
+                    this.ui.isCreating = true;
+                    this.ui.progressPhase = 'Initializing...';
+                    this.ui.progressPercent = 0;
+                    
+                    try {
+                        // TODO: Implement actual torrent creation
+                        // This would call the backend API and handle streaming progress
+                        
+                        // Simulate progress for now
+                        await this.simulateProgress();
+                        
+                        console.log('Torrent creation completed!');
+                    } catch (error) {
+                        console.error('Error creating torrent:', error);
+                    } finally {
+                        this.ui.isCreating = false;
+                    }
+                },
+                
+                async simulateProgress() {
+                    const phases = [
+                        { name: 'Scanning files...', duration: 1000 },
+                        { name: 'Calculating pieces...', duration: 2000 },
+                        { name: 'Hashing content...', duration: 3000 },
+                        { name: 'Finalizing torrent...', duration: 1000 }
+                    ];
+                    
+                    let totalProgress = 0;
+                    const stepSize = 100 / phases.length;
+                    
+                    for (const phase of phases) {
+                        this.ui.progressPhase = phase.name;
+                        
+                        const steps = 20;
+                        const stepDuration = phase.duration / steps;
+                        
+                        for (let i = 0; i <= steps; i++) {
+                            this.ui.progressPercent = Math.round(totalProgress + (stepSize * i / steps));
+                            await this.sleep(stepDuration);
+                        }
+                        
+                        totalProgress += stepSize;
+                    }
+                },
+                
+                cancelCreation() {
+                    this.ui.isCreating = false;
+                    this.ui.progressPhase = '';
+                    this.ui.progressPercent = 0;
+                },
+                
+                // Utility Functions
+                formatBytes(bytes) {
+                    if (!bytes || bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                },
+                
+                debounce(func, wait) {
+                    let timeout;
+                    return function executedFunction(...args) {
+                        const later = () => {
+                            clearTimeout(timeout);
+                            func.apply(this, args);
+                        };
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                    };
+                },
+                
+                sleep(ms) {
+                    return new Promise(resolve => setTimeout(resolve, ms));
+                },
+                
+                // Initialize component
+                init() {
+                    // Set up any initial state
+                    this.validateTrackers();
+                    
+                    // Watch for form changes that don't require tracking
+                    this.$watch('form.startSeeding', (value) => {
+                        if (!value) {
+                            this.form.ignoreShareRatio = false;
+                        }
+                    });
+                    
+                    this.$watch('form.trackerUrls', () => {
+                        this.validateTrackers();
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>

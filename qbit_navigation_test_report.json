@@ -1,0 +1,178 @@
+{
+  "summary": {
+    "total_tests": 16,
+    "passed": 16,
+    "failed": 0,
+    "success_rate": 100.0
+  },
+  "results": [
+    {
+      "test": "qBittorrent Connection",
+      "success": true,
+      "details": "Connected to qBittorrent v5.1.2 (API 2.11.4)",
+      "timestamp": "2025-08-28T21:04:59.191714",
+      "data": {
+        "version": "v5.1.2",
+        "api_version": "2.11.4",
+        "url": "http://10.1.60.2:8083"
+      }
+    },
+    {
+      "test": "Browse Root Directory",
+      "success": true,
+      "details": "Found 22 entries in root",
+      "timestamp": "2025-08-28T21:04:59.221744",
+      "data": {
+        "path": "/",
+        "entries": [
+          "/etc",
+          "/usr",
+          "/dev",
+          "/proc",
+          "/sys",
+          "/bin",
+          "/boot",
+          "/home",
+          "/lib",
+          "/lib64"
+        ]
+      }
+    },
+    {
+      "test": "Browse /data",
+      "success": true,
+      "details": "Found 6 entries",
+      "timestamp": "2025-08-28T21:04:59.226138",
+      "data": {
+        "path": "/data",
+        "entry_count": 6,
+        "sample_entries": [
+          "/data/trash",
+          "/data/downloads",
+          "/data/videos",
+          "/data/audio",
+          "/data/books"
+        ]
+      }
+    },
+    {
+      "test": "Browse /downloads",
+      "success": true,
+      "details": "Path not accessible (expected for some paths)",
+      "timestamp": "2025-08-28T21:04:59.230496",
+      "data": null
+    },
+    {
+      "test": "Browse /media",
+      "success": true,
+      "details": "Path not accessible (expected for some paths)",
+      "timestamp": "2025-08-28T21:04:59.232747",
+      "data": null
+    },
+    {
+      "test": "Browse /mnt",
+      "success": true,
+      "details": "Found 0 entries",
+      "timestamp": "2025-08-28T21:04:59.234773",
+      "data": {
+        "path": "/mnt",
+        "entry_count": 0,
+        "sample_entries": []
+      }
+    },
+    {
+      "test": "Browse /home",
+      "success": true,
+      "details": "Found 1 entries",
+      "timestamp": "2025-08-28T21:04:59.237007",
+      "data": {
+        "path": "/home",
+        "entry_count": 1,
+        "sample_entries": [
+          "/home/nobody"
+        ]
+      }
+    },
+    {
+      "test": "Browse /tmp",
+      "success": true,
+      "details": "Found 4 entries",
+      "timestamp": "2025-08-28T21:04:59.239187",
+      "data": {
+        "path": "/tmp",
+        "entry_count": 4,
+        "sample_entries": [
+          "/tmp/start-script-stdout---supervisor-nmamp7c3.log",
+          "/tmp/start-script-stderr---supervisor-ki3fcpj1.log",
+          "/tmp/watchdog-script-stdout---supervisor-tgbymiiu.log",
+          "/tmp/watchdog-script-stderr---supervisor-_2wuymoa.log"
+        ]
+      }
+    },
+    {
+      "test": "Navigate /data",
+      "success": true,
+      "details": "No subdirectories found (empty or only files)",
+      "timestamp": "2025-08-28T21:04:59.243013",
+      "data": null
+    },
+    {
+      "test": "Navigate /mnt",
+      "success": true,
+      "details": "No subdirectories found (empty or only files)",
+      "timestamp": "2025-08-28T21:04:59.245227",
+      "data": null
+    },
+    {
+      "test": "Navigate /home",
+      "success": true,
+      "details": "No subdirectories found (empty or only files)",
+      "timestamp": "2025-08-28T21:04:59.247404",
+      "data": null
+    },
+    {
+      "test": "Non-existent Path",
+      "success": true,
+      "details": "Correctly returned 404 for non-existent path",
+      "timestamp": "2025-08-28T21:04:59.249400",
+      "data": null
+    },
+    {
+      "test": "Invalid Path Characters",
+      "success": true,
+      "details": "Correctly handled invalid path characters",
+      "timestamp": "2025-08-28T21:04:59.252711",
+      "data": null
+    },
+    {
+      "test": "Empty Path",
+      "success": true,
+      "details": "Empty path rejected as expected: Invalid directory path",
+      "timestamp": "2025-08-28T21:04:59.254795",
+      "data": null
+    },
+    {
+      "test": "Docker Mapping /mnt/user/data \u2192 /data",
+      "success": true,
+      "details": "Container path accessible with 6 entries",
+      "timestamp": "2025-08-28T21:04:59.259915",
+      "data": {
+        "host_path": "/mnt/user/data",
+        "container_path": "/data",
+        "accessible": true
+      }
+    },
+    {
+      "test": "Default Save Path",
+      "success": true,
+      "details": "Default path /data/downloads/torrents/qbittorrent/completed accessible with 6 entries",
+      "timestamp": "2025-08-28T21:04:59.267288",
+      "data": {
+        "default_path": "/data/downloads/torrents/qbittorrent/completed",
+        "accessible": true,
+        "entries": 6
+      }
+    }
+  ],
+  "timestamp": "2025-08-28T21:04:59.267685"
+}
