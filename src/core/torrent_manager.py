@@ -721,16 +721,24 @@ class TorrentManager:
             entries = []
             for item in directory_contents:
                 item_str = str(item)
-                is_directory = item_str.endswith('/')
                 
-                # Remove trailing slash for processing
-                clean_name = item_str.rstrip('/')
-                
-                # Build full path
-                if normalized_path.endswith('/'):
-                    full_path = f"{normalized_path}{clean_name}"
+                # CRITICAL FIX: The API returns FULL PATHS, not relative names!
+                # Check if this is already a full path or just a name
+                if item_str.startswith('/'):
+                    # It's already a full path from the API
+                    full_path = item_str.rstrip('/')
+                    # Extract just the name for display
+                    clean_name = os.path.basename(full_path)
+                    is_directory = item_str.endswith('/')
                 else:
-                    full_path = f"{normalized_path}/{clean_name}"
+                    # It's a relative name (shouldn't happen with qBittorrent API, but handle it)
+                    is_directory = item_str.endswith('/')
+                    clean_name = item_str.rstrip('/')
+                    # Build full path
+                    if normalized_path.endswith('/'):
+                        full_path = f"{normalized_path}{clean_name}"
+                    else:
+                        full_path = f"{normalized_path}/{clean_name}"
                 
                 entries.append({
                     "name": clean_name,
@@ -744,6 +752,16 @@ class TorrentManager:
             
             # Calculate parent path
             parent_path = self._get_qbit_parent_path(normalized_path)
+            
+            # Debug logging to help diagnose
+            print(f"DEBUG browse_qbittorrent_directory:")
+            print(f"  Input path: {path}")
+            print(f"  Normalized path: {normalized_path}")
+            print(f"  API returned {len(directory_contents)} items")
+            if len(directory_contents) > 0:
+                print(f"  First item from API: {directory_contents[0]}")
+                if entries:
+                    print(f"  First processed entry: {entries[0]}")
             
             return {
                 "success": True,

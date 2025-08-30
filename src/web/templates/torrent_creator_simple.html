@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Torrent Creator</title>
+    <style>
+        /* Simple, clean CSS - no frameworks needed */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #2b2b2b;
+            color: #ffffff;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #3daee9;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3daee9;
+        }
+        
+        .card {
+            background: #3c3c3c;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #4b5563;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #b0b0b0;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px 12px;
+            background: #4a4a4a;
+            border: 1px solid #6b7280;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 14px;
+        }
+        
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #3daee9;
+            box-shadow: 0 0 0 2px rgba(61, 174, 233, 0.25);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: monospace;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #3daee9;
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .btn-secondary {
+            background: #4a4a4a;
+            color: white;
+            border: 1px solid #6b7280;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a5a5a;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .info-box {
+            background: #4a4a4a;
+            border-left: 4px solid #3daee9;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        
+        .error-box {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #ef4444;
+            padding: 10px;
+            margin-bottom: 15px;
+            color: #fca5a5;
+            font-size: 13px;
+        }
+        
+        .success-box {
+            background: rgba(34, 197, 94, 0.1);
+            border-left: 4px solid #22c55e;
+            padding: 10px;
+            margin-bottom: 15px;
+            color: #86efac;
+            font-size: 13px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #4a4a4a;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3daee9, #22c55e);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #808080;
+            margin-top: 5px;
+        }
+        
+        .row {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .col {
+            flex: 1;
+        }
+        
+        #status {
+            margin-top: 20px;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #3daee9;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Simple Torrent Creator</h1>
+        
+        <form id="torrentForm" onsubmit="return false;">
+            <!-- Path Selection -->
+            <div class="card">
+                <h3>Content to Share</h3>
+                <div class="form-group">
+                    <label for="path">Server Path</label>
+                    <input type="text" id="path" name="path" placeholder="/data/downloads/example" required>
+                    <div class="help-text">Enter the full path to the file or folder on the server</div>
+                </div>
+                
+                <button type="button" class="btn-secondary" onclick="analyzePath()">
+                    Analyze Path
+                </button>
+                
+                <div id="pathInfo" style="display:none; margin-top:15px;"></div>
+            </div>
+            
+            <!-- Basic Settings -->
+            <div class="card">
+                <h3>Settings</h3>
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="pieceSize">Piece Size</label>
+                            <select id="pieceSize" name="pieceSize">
+                                <option value="auto">Auto (Recommended)</option>
+                                <option value="16384">16 KB</option>
+                                <option value="32768">32 KB</option>
+                                <option value="65536">64 KB</option>
+                                <option value="131072">128 KB</option>
+                                <option value="262144">256 KB</option>
+                                <option value="524288">512 KB</option>
+                                <option value="1048576">1 MB</option>
+                                <option value="2097152">2 MB</option>
+                                <option value="4194304">4 MB</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-group">
+                            <label>Options</label>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="private" name="private" checked>
+                                <label for="private">Private torrent</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="startSeeding" name="startSeeding">
+                                <label for="startSeeding">Start seeding immediately</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Trackers -->
+            <div class="card">
+                <h3>Trackers</h3>
+                <div class="form-group">
+                    <label for="trackers">Tracker URLs (one per line)</label>
+                    <textarea id="trackers" name="trackers" placeholder="https://tracker.example.com/announce
+https://backup-tracker.example.com/announce" required></textarea>
+                    <div class="help-text">Add blank lines between trackers to create separate tiers</div>
+                </div>
+            </div>
+            
+            <!-- Optional Fields -->
+            <div class="card">
+                <h3>Optional Information</h3>
+                <div class="form-group">
+                    <label for="comment">Comment</label>
+                    <input type="text" id="comment" name="comment" placeholder="Created with Simple Torrent Creator">
+                </div>
+                <div class="form-group">
+                    <label for="source">Source</label>
+                    <input type="text" id="source" name="source" placeholder="Leave blank unless required">
+                    <div class="help-text">Only set if required for cross-seeding</div>
+                </div>
+            </div>
+            
+            <!-- Status Messages -->
+            <div id="status"></div>
+            
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button type="button" class="btn-primary" onclick="createTorrent()">
+                    Create Torrent
+                </button>
+                <button type="button" class="btn-secondary" onclick="resetForm()">
+                    Reset
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        // Simple, straightforward JavaScript - no frameworks
+        
+        let currentPathInfo = null;
+        
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = '';
+            
+            let className = 'info-box';
+            if (type === 'error') className = 'error-box';
+            if (type === 'success') className = 'success-box';
+            
+            status.innerHTML = `<div class="${className}">${message}</div>`;
+        }
+        
+        function clearStatus() {
+            document.getElementById('status').innerHTML = '';
+        }
+        
+        async function analyzePath() {
+            const path = document.getElementById('path').value.trim();
+            if (!path) {
+                showStatus('Please enter a path', 'error');
+                return;
+            }
+            
+            showStatus('<span class="loading"></span> Analyzing path...', 'info');
+            
+            try {
+                const response = await fetch('/api/qbittorrent/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        path: path,
+                        includeSize: true,
+                        recursive: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const data = await response.json();
+                currentPathInfo = data;
+                
+                // Display path info
+                const pathInfo = document.getElementById('pathInfo');
+                pathInfo.style.display = 'block';
+                pathInfo.innerHTML = `
+                    <div class="info-box">
+                        <strong>Path Analysis:</strong><br>
+                        Type: ${data.isDirectory ? 'Folder' : 'File'}<br>
+                        Size: ${formatBytes(data.totalBytes)}<br>
+                        Files: ${data.fileCount || 1}
+                    </div>
+                `;
+                
+                clearStatus();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                currentPathInfo = null;
+            }
+        }
+        
+        async function createTorrent() {
+            // Validate form
+            const path = document.getElementById('path').value.trim();
+            const trackers = document.getElementById('trackers').value.trim();
+            
+            if (!path) {
+                showStatus('Please enter a path', 'error');
+                return;
+            }
+            
+            if (!trackers) {
+                showStatus('Please add at least one tracker', 'error');
+                return;
+            }
+            
+            // Parse trackers into tiers
+            const trackerTiers = [];
+            let currentTier = [];
+            
+            trackers.split('\n').forEach(line => {
+                const url = line.trim();
+                if (url === '') {
+                    if (currentTier.length > 0) {
+                        trackerTiers.push(currentTier);
+                        currentTier = [];
+                    }
+                } else if (isValidUrl(url)) {
+                    currentTier.push(url);
+                }
+            });
+            
+            if (currentTier.length > 0) {
+                trackerTiers.push(currentTier);
+            }
+            
+            if (trackerTiers.length === 0) {
+                showStatus('No valid tracker URLs found', 'error');
+                return;
+            }
+            
+            // Build request
+            const requestData = {
+                path: path,
+                trackers: trackerTiers,
+                private: document.getElementById('private').checked,
+                comment: document.getElementById('comment').value || undefined,
+                source: document.getElementById('source').value || undefined,
+                startSeeding: document.getElementById('startSeeding').checked
+            };
+            
+            const pieceSize = document.getElementById('pieceSize').value;
+            if (pieceSize !== 'auto') {
+                requestData.pieceSizeBytes = parseInt(pieceSize);
+            }
+            
+            // Show progress
+            showStatus('<span class="loading"></span> Creating torrent...', 'info');
+            
+            try {
+                const response = await fetch('/api/qbittorrent/create-torrent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(`✅ Torrent created successfully!<br>
+                        File: ${result.filename}<br>
+                        ${result.seeding ? 'Started seeding' : 'Saved to downloads'}`, 'success');
+                    
+                    // Optionally reset form
+                    if (confirm('Torrent created! Do you want to create another?')) {
+                        resetForm();
+                    }
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function resetForm() {
+            document.getElementById('torrentForm').reset();
+            document.getElementById('pathInfo').style.display = 'none';
+            currentPathInfo = null;
+            clearStatus();
+        }
+        
+        function formatBytes(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function isValidUrl(string) {
+            try {
+                const url = new URL(string);
+                return ['http:', 'https:', 'udp:'].includes(url.protocol);
+            } catch {
+                return false;
+            }
+        }
+        
+        // Save form data to localStorage
+        window.addEventListener('beforeunload', () => {
+            const formData = {
+                path: document.getElementById('path').value,
+                trackers: document.getElementById('trackers').value,
+                comment: document.getElementById('comment').value,
+                source: document.getElementById('source').value,
+                private: document.getElementById('private').checked,
+                startSeeding: document.getElementById('startSeeding').checked,
+                pieceSize: document.getElementById('pieceSize').value
+            };
+            localStorage.setItem('torrentFormData', JSON.stringify(formData));
+        });
+        
+        // Restore form data on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('torrentFormData');
+            if (saved) {
+                try {
+                    const formData = JSON.parse(saved);
+                    document.getElementById('path').value = formData.path || '';
+                    document.getElementById('trackers').value = formData.trackers || '';
+                    document.getElementById('comment').value = formData.comment || '';
+                    document.getElementById('source').value = formData.source || '';
+                    document.getElementById('private').checked = formData.private !== false;
+                    document.getElementById('startSeeding').checked = formData.startSeeding || false;
+                    document.getElementById('pieceSize').value = formData.pieceSize || 'auto';
+                } catch (e) {
+                    console.error('Failed to restore form data:', e);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

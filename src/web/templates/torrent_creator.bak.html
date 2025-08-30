@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Torrent Creator - qBittorrent Style</title>
+    
+    <!-- CDN Dependencies for Development -->
+    <!-- Note: CDN usage without SRI hashes is a security concern for production. -->
+    <!-- However, using CDNs during development when package management isn't available. -->
+    <!-- For production deployment, implement proper package management per docs/JAVASCRIPT_PACKAGE_STRATEGY.md -->
+    
+    <!-- Tailwind CSS CDN (for rapid prototyping) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+    
+    <!-- Auto-Animate for smooth transitions (MUST load before Alpine.js) -->
+    <script>
+        // Load Auto-Animate and expose it to window for Alpine.js to use
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load auto-animate dynamically
+            const script = document.createElement('script');
+            script.src = "https://unpkg.com/@formkit/auto-animate@0.8.1/dist/index.global.js";
+            script.onload = function() {
+                // Make sure autoAnimate is available globally
+                if (typeof autoAnimate === 'function') {
+                    window.autoAnimate = autoAnimate;
+                    console.log('Auto-animate loaded and exposed to window');
+                }
+            };
+            document.head.appendChild(script);
+        });
+    </script>
+    
+    <!-- Day.js for date/time handling -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
+    
+    <!-- SortableJS for drag-and-drop tracker management -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    
+    <!-- Heroicons for icons -->
+    <script src="https://unpkg.com/heroicons@2.0.18/24/outline/index.js"></script>
+    
+    <!-- Alpine.js Plugins (MUST load before Alpine.js core) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Alpine.js Core (MUST load last) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Initialize Alpine.js plugins -->
+    <script>
+        // Configure Day.js
+        dayjs.extend(dayjs_plugin_relativeTime)
+        
+        // Initialize Alpine.js plugins
+        document.addEventListener('alpine:init', () => {
+            // Add auto-animate directive (safely)
+            Alpine.directive('auto-animate', (el) => {
+                if (typeof window.autoAnimate === 'function') {
+                    window.autoAnimate(el);
+                    console.log('Auto-animate applied to element:', el);
+                } else {
+                    // autoAnimate not loaded yet - animations will be skipped silently
+                }
+            });
+            
+            // Add notification system
+            Alpine.store('notifications', {
+                toasts: [],
+                
+                notify(message, type = 'info', duration = 3000) {
+                    const toast = {
+                        id: Date.now(),
+                        message,
+                        type,
+                        timestamp: new Date()
+                    }
+                    this.toasts.push(toast)
+                    
+                    setTimeout(() => {
+                        const index = this.toasts.findIndex(t => t.id === toast.id)
+                        if (index > -1) this.toasts.splice(index, 1)
+                    }, duration)
+                },
+                
+                success(message) { this.notify(message, 'success') },
+                error(message) { this.notify(message, 'error') },
+                warning(message) { this.notify(message, 'warning') },
+                info(message) { this.notify(message, 'info') }
+            })
+        })
+    </script>
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        qbit: {
+                            'darker': '#2b2b2b',      // Main background
+                            'dark': '#3c3c3c',        // Cards, modals  
+                            'bg-primary': '#2b2b2b',
+                            'bg-secondary': '#3c3c3c',
+                            'bg-tertiary': '#4a4a4a',
+                            'accent': '#3daee9',       // Primary actions
+                            'accent-hover': '#2980b9', // Hover states
+                            'success': '#27ae60',      // Success, completed
+                            'warning': '#f39c12',      // Warnings, pending
+                            'error': '#e74c3c',        // Errors, failed
+                            'text-primary': '#ffffff', // Primary text
+                            'text-secondary': '#b0b0b0', // Secondary text  
+                            'text-muted': '#808080'    // Disabled, hints
+                        }
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'pulse-subtle': 'pulseSubtle 2s ease-in-out infinite'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        pulseSubtle: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.8' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom Styles -->
+        <!-- Custom Styles -->
+    <style>
+        /* qBittorrent-inspired component styles */
+        .qbit-card {
+            background-color: #3c3c3c;
+            border: 1px solid #4b5563;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+        
+        .qbit-card:hover {
+            border-color: rgba(61, 174, 233, 0.5);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .qbit-input {
+            background-color: #4a4a4a;
+            border: 1px solid #6b7280;
+            border-radius: 0.375rem;
+            color: #ffffff;
+            transition: all 0.2s ease;
+            padding: 0.5rem 0.75rem;
+            min-height: 2.5rem;
+        }
+        
+        .qbit-input::placeholder {
+            color: #808080;
+        }
+        
+        .qbit-input:focus {
+            border-color: #3daee9;
+            box-shadow: 0 0 0 2px rgba(61, 174, 233, 0.25);
+            outline: none;
+        }
+        
+        .qbit-btn-primary {
+            background-color: #3daee9;
+            color: white;
+            font-weight: 500;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+            padding: 0.5rem 1rem;
+            min-height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .qbit-btn-primary:hover:not(:disabled) {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(61, 174, 233, 0.3);
+        }
+        
+        .qbit-btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .qbit-btn-secondary {
+            background-color: #4a4a4a;
+            color: #ffffff;
+            font-weight: 500;
+            border: 1px solid #6b7280;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+            padding: 0.5rem 1rem;
+            min-height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .qbit-btn-secondary:hover:not(:disabled) {
+            background-color: #5a5a5a;
+            border-color: #3daee9;
+            transform: translateY(-1px);
+        }
+        
+        /* Beautiful progress bar */
+        .qbit-progress-bar {
+            width: 100%;
+            height: 0.5rem;
+            background-color: #4a4a4a;
+            border-radius: 0.25rem;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .qbit-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3daee9 0%, #27ae60 100%);
+            border-radius: 0.25rem;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Animated shimmer effect for progress */
+        .qbit-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { left: -100%; }
+            50% { left: 100%; }
+            100% { left: 100%; }
+        }
+        
+        /* Toast notification styles */
+        .toast {
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .toast-success { background-color: #27ae60; }
+        .toast-error { background-color: #e74c3c; }
+        .toast-warning { background-color: #f39c12; }
+        .toast-info { background-color: #3daee9; }
+        
+        /* Smooth transitions for Alpine.js */
+        [x-cloak] { display: none !important; }
+        
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        .fade-in-up-enter {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* Custom spinner */
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* File browser enhancements */
+        .file-item {
+            transition: all 0.2s ease;
+        }
+        
+        .file-item:hover {
+            background-color: rgba(61, 174, 233, 0.1);
+            border-color: rgba(61, 174, 233, 0.3);
+        }
+        
+        /* Better scrollbars */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #2b2b2b;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 4px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #5a5a5a;
+        }
+        
+        /* Form validation styles */
+        .qbit-input.error {
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.25);
+        }
+        
+        .qbit-input.success {
+            border-color: #27ae60;
+            box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.25);
+        }
+    </style>
+</head>
+
+<body class="bg-qbit-darker text-qbit-text-primary font-inter min-h-screen">
+    
+    <!-- Main Application Container -->
+    <div x-data="torrentCreator()" x-cloak class="min-h-screen flex flex-col">
+        
+        <!-- Header -->
+        <header class="bg-qbit-dark border-b border-gray-600 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-qbit-accent rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold">⚡</span>
+                    </div>
+                    <h1 class="text-xl font-semibold text-qbit-text-primary">Torrent Creator</h1>
+                </div>
+                
+                <!-- Connection Status -->
+                <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 text-sm">
+                        <div class="w-2 h-2 bg-qbit-success rounded-full"></div>
+                        <span class="text-qbit-text-secondary">qBittorrent Connected</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main class="flex-1 p-6 space-y-6 max-w-5xl mx-auto w-full" x-auto-animate>
+            
+            <!-- Card 1: Select file/folder to share -->
+            <div class="qbit-card p-6">
+                <div class="mb-4">
+                    <h2 class="text-lg font-medium text-qbit-text-primary flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-qbit-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2v0"></path>
+                        </svg>
+                        Select file/folder to share
+                    </h2>
+                    <p class="text-sm text-qbit-text-muted mt-1">Choose a server path (not your browser's files)</p>
+                </div>
+                
+                <div class="space-y-4">
+                    <!-- Path Input Row -->
+                    <div class="flex space-x-3">
+                        <div class="flex-1">
+                            <input 
+                                x-model="form.path" 
+                                @input="pathChanged()"
+                                type="text" 
+                                placeholder="/data/downloads/example..."
+                                class="qbit-input w-full px-3 py-2"
+                            >
+                        </div>
+                        <button 
+                            @click="browseFile()"
+                            class="qbit-btn-secondary px-6"
+                            :disabled="ui.isScanning"
+                        >
+                            Select file
+                        </button>
+                        <button 
+                            @click="browseFolder()"
+                            class="qbit-btn-secondary px-6"
+                            :disabled="ui.isScanning"
+                        >
+                            Select folder
+                        </button>
+                    </div>
+                    
+                    <!-- Path Info -->
+                    <div x-show="form.path && form.totalBytes !== null" 
+                         x-transition:enter="fade-in-up"
+                         class="bg-qbit-bg-tertiary rounded-md p-4 border border-qbit-border mt-4">
+                        <h3 class="text-qbit-text-primary font-semibold mb-3 text-sm">Selected Content Information</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <span class="text-qbit-text-muted">Total Size:</span>
+                                <span class="ml-2 text-qbit-text-primary font-medium" x-text="formatBytes(form.totalBytes)"></span>
+                            </div>
+                            <div>
+                                <span class="text-qbit-text-muted">Files:</span>
+                                <span class="ml-2 text-qbit-text-primary font-medium" x-text="form.fileCount?.toLocaleString() || '0'"></span>
+                            </div>
+                            <div>
+                                <span class="text-qbit-text-muted">Type:</span>
+                                <span class="ml-2 text-qbit-text-primary font-medium capitalize" x-text="form.mode"></span>
+                            </div>
+                        </div>
+                        <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <span class="text-qbit-text-muted">Piece Size:</span>
+                                <span class="ml-2 text-qbit-text-primary font-medium" x-text="form.pieceSize ? (form.pieceSize + ' KB') : 'Auto'"></span>
+                            </div>
+                            <div>
+                                <span class="text-qbit-text-muted">Piece Count:</span>
+                                <span class="ml-2 text-qbit-text-primary font-medium" x-text="form.totalBytes && form.pieceSize ? Math.ceil(form.totalBytes / (form.pieceSize * 1024)) : '0'"></span>
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Scan Error Message -->
+                    <div x-show="ui.isScanError" 
+                         x-transition
+                         class="bg-red-50 text-red-700 p-4 rounded-md border border-red-200 mt-4">
+                        <div class="flex">
+                            <svg class="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                                <h3 class="text-sm font-medium text-red-800">Scan Error</h3>
+                                <p class="mt-1 text-sm text-red-700" x-text="ui.scanErrorMessage || 'An error occurred while scanning the path'"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Scanning Indicator -->
+                    <div x-show="ui.isScanning" 
+                         x-transition
+                         class="flex items-center justify-center py-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-qbit-accent"></div>
+                            <span class="text-qbit-text-secondary">Scanning path...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card 2: Settings -->
+            <div class="qbit-card p-6">
+                <h2 class="text-lg font-medium text-qbit-text-primary mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-qbit-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    Settings
+                </h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Piece Size Section -->
+                    <div class="space-y-4">
+                        <h3 class="font-medium text-qbit-text-primary">Piece Size</h3>
+                        
+                        <!-- Piece Size Mode -->
+                        <div class="space-y-2">
+                            <label class="text-sm text-qbit-text-secondary">Mode:</label>
+                            <select x-model="form.pieceSizeMode" 
+                                    @change="pieceSizeModeChanged()"
+                                    class="qbit-input w-full px-3 py-2">
+                                <option value="auto">Auto</option>
+                                <option value="manual">Manual</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Manual Piece Size -->
+                        <div x-show="form.pieceSizeMode === 'manual'" 
+                             x-transition
+                             class="space-y-2">
+                            <label class="text-sm text-qbit-text-secondary">Size:</label>
+                            <select x-model="form.manualPieceSize" 
+                                    class="qbit-input w-full px-3 py-2">
+                                <option value="16384">16 KiB</option>
+                                <option value="32768">32 KiB</option>
+                                <option value="65536">64 KiB</option>
+                                <option value="131072">128 KiB</option>
+                                <option value="262144">256 KiB</option>
+                                <option value="524288">512 KiB</option>
+                                <option value="1048576">1 MiB</option>
+                                <option value="2097152">2 MiB</option>
+                                <option value="4194304">4 MiB</option>
+                                <option value="8388608">8 MiB</option>
+                                <option value="16777216">16 MiB</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Calculate Button -->
+                        <button 
+                            @click="calculatePieces()"
+                            :disabled="!canCalculate || ui.isCalculating"
+                            class="qbit-btn-primary w-full"
+                        >
+                            <span x-show="!ui.isCalculating">Calculate number of pieces</span>
+                            <span x-show="ui.isCalculating" class="flex items-center">
+                                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Calculating...
+                            </span>
+                        </button>
+                        
+                        <!-- Piece Count Display -->
+                        <div x-show="form.totalBytes && form.pieceSize" 
+                             x-transition
+                             class="bg-qbit-bg-tertiary rounded-md p-3">
+                            <div class="space-y-1 text-sm">
+                                <div>
+                                    <span class="text-qbit-text-muted">Piece size:</span>
+                                    <span class="ml-2 text-qbit-text-primary font-medium" x-text="formatBytes(form.pieceSizeBytes)"></span>
+                                </div>
+                                <div>
+                                    <span class="text-qbit-text-muted">Piece count:</span>
+                                    <span class="ml-2 text-qbit-text-primary font-medium" x-text="form.totalBytes && form.pieceSize ? Math.ceil(form.totalBytes / (form.pieceSize * 1024)).toLocaleString() : '0'"></span>
+                                </div>
+                                <div x-show="efficiency !== null">
+                                    <span class="text-qbit-text-muted">Efficiency:</span>
+                                    <span class="ml-2 font-medium" 
+                                          :class="efficiency >= 95 ? 'text-qbit-success' : efficiency >= 85 ? 'text-qbit-warning' : 'text-qbit-error'"
+                                          x-text="efficiency + '%'"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Privacy & Seeding Section -->
+                    <div class="space-y-4">
+                        <h3 class="font-medium text-qbit-text-primary">Privacy & Seeding</h3>
+                        
+                        <!-- Private Torrent -->
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" 
+                                   x-model="form.privateTorrent"
+                                   class="w-4 h-4 text-qbit-accent bg-qbit-bg-tertiary border-gray-500 rounded focus:ring-qbit-accent">
+                            <div>
+                                <div class="text-sm text-qbit-text-primary">Private torrent</div>
+                                <div class="text-xs text-qbit-text-muted">(Won't distribute on DHT network)</div>
+                            </div>
+                        </label>
+                        
+                        <!-- Start Seeding -->
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" 
+                                   x-model="form.startSeeding"
+                                   class="w-4 h-4 text-qbit-accent bg-qbit-bg-tertiary border-gray-500 rounded focus:ring-qbit-accent">
+                            <div>
+                                <div class="text-sm text-qbit-text-primary">Start seeding immediately</div>
+                                <div class="text-xs text-qbit-text-muted">Add to qBittorrent after creation</div>
+                            </div>
+                        </label>
+                        
+                        <!-- Ignore Share Ratio -->
+                        <label x-show="form.startSeeding" 
+                               x-transition
+                               class="flex items-center space-x-3 cursor-pointer ml-6">
+                            <input type="checkbox" 
+                                   x-model="form.ignoreShareRatio"
+                                   class="w-4 h-4 text-qbit-accent bg-qbit-bg-tertiary border-gray-500 rounded focus:ring-qbit-accent">
+                            <div>
+                                <div class="text-sm text-qbit-text-primary">Ignore share ratio limits for this torrent</div>
+                                <div class="text-xs text-qbit-text-muted">Keep seeding indefinitely</div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <!-- Alignment Section -->
+                    <div class="space-y-4">
+                        <h3 class="font-medium text-qbit-text-primary">Optimize alignment</h3>
+                        
+                        <!-- Optimize Alignment Toggle -->
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" 
+                                   x-model="form.optimizeAlignment"
+                                   class="w-4 h-4 text-qbit-accent bg-qbit-bg-tertiary border-gray-500 rounded focus:ring-qbit-accent">
+                            <div>
+                                <div class="text-sm text-qbit-text-primary">Enable alignment optimization</div>
+                                <div class="text-xs text-qbit-text-muted">Align large files to piece boundaries</div>
+                            </div>
+                        </label>
+                        
+                        <!-- Alignment Threshold -->
+                        <div x-show="form.optimizeAlignment" 
+                             x-transition
+                             class="space-y-2">
+                            <label class="text-sm text-qbit-text-secondary">Align to piece boundary for files larger than:</label>
+                            <select x-model="form.alignThresholdBytes" 
+                                    class="qbit-input w-full px-3 py-2">
+                                <option value="">Disabled</option>
+                                <option value="33554432">32 MiB</option>
+                                <option value="67108864">64 MiB</option>
+                                <option value="134217728">128 MiB</option>
+                                <option value="268435456">256 MiB</option>
+                                <option value="536870912">512 MiB</option>
+                                <option value="1073741824">1 GiB</option>
+                            </select>
+                            <p class="text-xs text-qbit-warning">⚠️ Some trackers forbid pad files</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card 3: Trackers -->
+            <div class="qbit-card p-6">
+                <h2 class="text-lg font-medium text-qbit-text-primary mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-qbit-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Tracker URLs
+                </h2>
+                
+                <div class="space-y-4">
+                    <!-- Tracker Input -->
+                    <div>
+                        <label class="block text-sm text-qbit-text-secondary mb-2">
+                            Tracker URLs (one per line, separate tiers with blank lines):
+                        </label>
+                        <textarea 
+                            x-model="form.trackerUrls"
+                            @input="validateTrackers()"
+                            rows="6"
+                            placeholder="https://tracker.example.com/announce&#10;&#10;https://backup.tracker.com/announce"
+                            class="qbit-input w-full px-3 py-2 font-mono text-sm"
+                        ></textarea>
+                    </div>
+                    
+                    <!-- Tracker Validation -->
+                    <div x-show="trackerValidation.length > 0" 
+                         x-transition
+                         class="space-y-2">
+                        <template x-for="validation in trackerValidation" :key="validation.line">
+                            <div class="flex items-center space-x-2 text-sm">
+                                <div class="w-4 h-4 flex items-center justify-center">
+                                    <svg x-show="validation.valid" class="w-4 h-4 text-qbit-success" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <svg x-show="!validation.valid" class="w-4 h-4 text-qbit-error" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                                <span :class="validation.valid ? 'text-qbit-text-secondary' : 'text-qbit-error'">
+                                    Line <span x-text="validation.line"></span>: <span x-text="validation.message"></span>
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Tracker Tiers Preview -->
+                    <div x-show="trackerTiers.length > 0" 
+                         x-transition
+                         class="bg-qbit-bg-tertiary rounded-md p-3">
+                        <h4 class="text-sm font-medium text-qbit-text-primary mb-2">Tracker Tiers:</h4>
+                        <template x-for="(tier, index) in trackerTiers" :key="index">
+                            <div class="mb-2">
+                                <div class="text-xs text-qbit-text-muted mb-1">
+                                    Tier <span x-text="index + 1"></span> (<span x-text="tier.length"></span> tracker<span x-text="tier.length !== 1 ? 's' : ''"></span>):
+                                </div>
+                                <template x-for="tracker in tier" :key="tracker">
+                                    <div class="text-xs text-qbit-text-secondary font-mono ml-2" x-text="tracker"></div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card 4: Advanced Settings (Collapsible) -->
+            <div class="qbit-card">
+                <button @click="ui.showAdvanced = !ui.showAdvanced" 
+                        class="w-full p-6 text-left flex items-center justify-between">
+                    <h2 class="text-lg font-medium text-qbit-text-primary flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-qbit-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+                        </svg>
+                        Advanced Settings
+                    </h2>
+                    <svg class="w-5 h-5 transition-transform duration-200" 
+                         :class="ui.showAdvanced ? 'rotate-180' : ''"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <div x-show="ui.showAdvanced" 
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 transform -translate-y-2"
+                     x-transition:enter-end="opacity-100 transform translate-y-0"
+                     class="px-6 pb-6 space-y-6">
+                    
+                    <!-- Web Seed URLs -->
+                    <div>
+                        <label class="block text-sm font-medium text-qbit-text-primary mb-2">Web seed URLs:</label>
+                        <textarea 
+                            x-model="form.webSeeds"
+                            rows="3"
+                            placeholder="https://example.com/files/&#10;https://mirror.example.org/downloads/"
+                            class="qbit-input w-full px-3 py-2 font-mono text-sm"
+                        ></textarea>
+                        <div x-show="form.privateTorrent && form.webSeeds.trim()" 
+                             class="mt-2 text-xs text-qbit-warning">
+                            ⚠️ Web seeds are often forbidden on private trackers
+                        </div>
+                    </div>
+                    
+                    <!-- Comments -->
+                    <div>
+                        <label class="block text-sm font-medium text-qbit-text-primary mb-2">Comments:</label>
+                        <textarea 
+                            x-model="form.comment"
+                            rows="3"
+                            placeholder="Created with qBittorrent Torrent Creator&#10;Build: v1.0.0"
+                            class="qbit-input w-full px-3 py-2"
+                        ></textarea>
+                        <div class="mt-1 text-xs text-qbit-text-muted">
+                            <span x-text="form.comment.length"></span> characters
+                        </div>
+                    </div>
+                    
+                    <!-- Source -->
+                    <div>
+                        <label class="block text-sm font-medium text-qbit-text-primary mb-2">Source:</label>
+                        <input 
+                            x-model="form.source"
+                            type="text"
+                            placeholder="Site short name (leave blank for cross-seeding)"
+                            class="qbit-input w-full px-3 py-2"
+                        >
+                        <div class="mt-1 text-xs text-qbit-text-muted">
+                            Tracker-specific tag. Leave blank unless required for cross-seeding compatibility.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Footer: Progress & Actions -->
+        <footer class="bg-qbit-dark border-t border-gray-600 px-6 py-4">
+            <div class="max-w-5xl mx-auto">
+                
+                <!-- Summary Information -->
+                <div x-show="form.path && form.totalBytes !== null" 
+                     x-transition
+                     class="mb-4">
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <!-- Summary Chips -->
+                        <div class="bg-qbit-bg-secondary px-3 py-1 rounded-full">
+                            <span class="text-qbit-text-muted">Size:</span>
+                            <span class="text-qbit-text-primary ml-1" x-text="formatBytes(form.totalBytes)"></span>
+                        </div>
+                        <div class="bg-qbit-bg-secondary px-3 py-1 rounded-full">
+                            <span class="text-qbit-text-muted">Files:</span>
+                            <span class="text-qbit-text-primary ml-1" x-text="form.fileCount?.toLocaleString()"></span>
+                        </div>
+                        <div x-show="form.pieceSizeBytes" class="bg-qbit-bg-secondary px-3 py-1 rounded-full">
+                            <span class="text-qbit-text-muted">Piece size:</span>
+                            <span class="text-qbit-text-primary ml-1" x-text="formatBytes(form.pieceSizeBytes)"></span>
+                        </div>
+                        <div x-show="form.totalBytes && form.pieceSize" class="bg-qbit-bg-secondary px-3 py-1 rounded-full">
+                            <span class="text-qbit-text-muted">Pieces:</span>
+                            <span class="text-qbit-text-primary ml-1" x-text="Math.ceil(form.totalBytes / (form.pieceSize * 1024)).toLocaleString()"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div x-show="ui.isCreating" 
+                     x-transition
+                     class="mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-qbit-text-secondary" x-text="ui.progressPhase"></span>
+                        <span class="text-sm text-qbit-text-primary" x-text="ui.progressPercent + '%'"></span>
+                    </div>
+                    <div class="qbit-progress-bar">
+                        <div class="qbit-progress-fill" 
+                             :style="`width: ${ui.progressPercent}%`"></div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-qbit-text-muted">
+                        <template x-if="!canCreate">
+                            <span>Select a path and add tracker URLs to continue</span>
+                        </template>
+                        <template x-if="canCreate && !ui.isCreating">
+                            <span>Ready to create torrent</span>
+                        </template>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <button 
+                            x-show="ui.isCreating"
+                            @click="cancelCreation()"
+                            class="qbit-btn-secondary"
+                        >
+                            Cancel
+                        </button>
+                        
+                        <button 
+                            @click="createTorrent()"
+                            :disabled="!canCreate || ui.isCreating"
+                            class="qbit-btn-primary px-8"
+                        >
+                            <span x-show="!ui.isCreating">Create Torrent</span>
+                            <span x-show="ui.isCreating" class="flex items-center">
+                                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Creating...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </footer>
+        
+        <!-- File Browser Modal - TEMPORARILY DISABLED -->
+        <!--
+        <div x-show="browser.isOpen" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+             @click.self="browser.isOpen = false">
+            
+            <div class="bg-qbit-bg-secondary rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
+                <div class="p-6 border-b border-gray-600">
+                    <h3 class="text-lg font-medium text-qbit-text-primary">
+                        Browse Server Files
+                        <span x-text="form.mode === 'file' ? '(Select File)' : '(Select Folder)'"></span>
+                    </h3>
+                    <p class="text-sm text-qbit-text-muted mt-1">
+                        Current path: <span class="font-mono" x-text="browser.currentPath"></span>
+                    </p>
+                    <div class="text-xs bg-qbit-accent bg-opacity-20 rounded px-2 py-1 mt-1 inline-block">
+                        Using qBittorrent API for direct browsing
+                    </div>
+                    <div x-show="browser.parentPath" class="text-xs text-qbit-text-muted mt-1">
+                        Parent path: <span class="font-mono" x-text="browser.parentPath"></span>
+                    </div>
+                </div>
+                
+                <div class="flex-1 p-4 overflow-auto">
+                    <!-- Navigation and action buttons -->
+                    <div class="flex space-x-2 mb-4">
+                        <button @click="navigateUp()" 
+                                class="qbit-btn-secondary flex items-center space-x-1 px-3 py-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Up</span>
+                        </button>
+                        
+                        <template x-if="form.mode === 'folder'">
+                            <button @click="selectCurrentDirectory()" 
+                                    class="qbit-btn-primary flex items-center space-x-1 px-3 py-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                                <span>Use This Folder & Close</span>
+                            </button>
+                        </template>
+                        
+                        <!-- Quick navigation shortcuts with tooltip hints -->
+                        <div class="flex space-x-1 border-l border-gray-600 pl-2 ml-2">
+                            <button @click="navigateToPath('/')" 
+                                    title="Navigate to root directory"
+                                    class="qbit-btn-secondary px-3 py-2 text-sm">
+                                Root
+                            </button>
+                            <button @click="navigateToPath('/data')" 
+                                    title="Navigate to /data directory"
+                                    class="qbit-btn-secondary px-3 py-2 text-sm">
+                                Data
+                            </button>
+                            <button @click="navigateToPath('/data/downloads')" 
+                                    title="Navigate to /data/downloads directory"
+                                    class="qbit-btn-secondary px-3 py-2 text-sm">
+                                Downloads
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading indicator -->
+                    <div x-show="browser.loading" class="text-center py-8">
+                        <svg class="animate-spin h-8 w-8 mx-auto text-qbit-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-qbit-text-primary">Loading...</p>
+                    </div>
+                    
+                    <!-- Error message -->
+                    <div x-show="browser.error && !browser.loading" class="text-center py-8">
+                        <svg class="h-10 w-10 mx-auto text-qbit-error" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="mt-2 text-qbit-error" x-text="browser.error"></p>
+                    </div>
+                    
+                    <!-- File listing -->
+                    <div x-show="!browser.loading && !browser.error" class="border border-gray-700 rounded">
+                        <table class="min-w-full divide-y divide-gray-700">
+                            <thead class="bg-qbit-bg-tertiary">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-qbit-text-muted uppercase tracking-wider">
+                                        Name
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-qbit-text-muted uppercase tracking-wider">
+                                        Type
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-qbit-text-muted uppercase tracking-wider">
+                                        Size
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-qbit-bg-secondary divide-y divide-gray-700">
+                                <template x-if="Array.isArray(browser.entries)">
+                                    <template x-for="entry in browser.entries" :key="entry.path || entry.file_path || (browser.currentPath + '/' + (entry.name || entry.filename))">
+                                        <tr @click="selectEntry(entry)" 
+                                            class="hover:bg-qbit-bg-tertiary cursor-pointer relative group"
+                                            :title="JSON.stringify(entry, null, 2)">
+                                            <!-- Tooltip with all entry information -->
+                                            <div class="fixed invisible group-hover:visible z-50 bg-gray-800 text-white text-xs rounded p-2 shadow-lg max-w-md whitespace-pre-wrap overflow-auto" 
+                                                 style="max-height: 300px; transform: translate(0, 20px);" 
+                                                 x-on:mouseenter="$el.style.visibility = 'visible'" 
+                                                 x-on:mouseleave="$el.style.visibility = 'hidden'">
+                                                <div class="font-bold mb-1">Entry Details:</div>
+                                                <pre x-text="JSON.stringify(entry, null, 2)"></pre>
+                                            </div>
+                                            <td class="px-4 py-2 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                <!-- Folder icon -->
+                                                <template x-if="$data.isDirectory(entry)">
+                                                    <svg class="h-5 w-5 mr-2 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+                                                    </svg>
+                                                </template>
+                                                
+                                                <!-- File icon -->
+                                                <template x-if="!$data.isDirectory(entry)">
+                                                    <svg class="h-5 w-5 mr-2 text-qbit-text-muted" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path>
+                                                    </svg>
+                                                </template>
+                                                
+                                                <div class="flex flex-col">
+                                                    <span class="text-qbit-text-primary" x-text="(entry.name || entry.filename)"></span>
+                                                    <!-- Show original name if different -->
+                                                    <template x-if="entry.original_name && entry.original_name !== entry.name">
+                                                        <span class="text-xs text-qbit-text-muted italic" x-text="'Original: ' + entry.original_name"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-2 whitespace-nowrap">
+                                            <span class="text-qbit-text-muted" x-text="$data.isDirectory(entry) ? 'Folder' : 'File'"></span>
+                                        </td>
+                                        <td class="px-4 py-2 whitespace-nowrap text-right">
+                                            <span class="text-qbit-text-muted" x-text="$data.isDirectory(entry) ? '-' : formatBytes(entry.size || entry.file_size || 0)"></span>
+                                        </td>
+                                    </tr>
+                                    </template>
+                                </template>
+                                
+                                <!-- Empty state -->
+                                <tr x-show="Array.isArray(browser.entries) && browser.entries.length === 0 && !browser.loading && !browser.error">
+                                    <td colspan="3" class="px-4 py-8 text-center text-qbit-text-muted">
+                                        <p>Empty directory</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="p-4 border-t border-gray-600 flex justify-end space-x-3">
+                    <button @click="cancelBrowse()" class="qbit-btn-secondary">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        -->
+        
+        <!-- Toast Notification System -->
+        <div x-data="{}" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none">
+            <template x-for="toast in $store.notifications.toasts" :key="toast.id">
+                <div x-show="true" 
+                     x-transition:enter="transform transition ease-in-out duration-300"
+                     x-transition:enter-start="translate-x-full opacity-0"
+                     x-transition:enter-end="translate-x-0 opacity-100"
+                     x-transition:leave="transform transition ease-in-out duration-300"
+                     x-transition:leave-start="translate-x-0 opacity-100"
+                     x-transition:leave-end="translate-x-full opacity-0"
+                     :class="`toast-${toast.type}`"
+                     class="toast show pointer-events-auto bg-qbit-accent text-white px-4 py-3 rounded-lg shadow-lg max-w-sm flex items-center space-x-3">
+                    
+                    <!-- Icon based on toast type -->
+                    <div class="flex-shrink-0">
+                        <template x-if="toast.type === 'success'">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </template>
+                        <template x-if="toast.type === 'error'">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </template>
+                        <template x-if="toast.type === 'warning'">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        </template>
+                        <template x-if="toast.type === 'info'">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </template>
+                    </div>
+                    
+                    <!-- Message -->
+                    <div class="flex-1">
+                        <p class="text-sm font-medium" x-text="toast.message"></p>
+                        <p class="text-xs opacity-75" x-text="dayjs(toast.timestamp).fromNow()"></p>
+                    </div>
+                    
+                    <!-- Close button -->
+                    <button @click="$store.notifications.toasts = $store.notifications.toasts.filter(t => t.id !== toast.id)"
+                            class="flex-shrink-0 ml-2 text-white hover:text-gray-300 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </template>
+        </div>
+    </div>
+    
+    <!-- Alpine.js Component Script -->
+    <script>
+        function torrentCreator() {
+            return {
+                // Form State with Persistence
+                form: Alpine.$persist({
+                    path: '',
+                    mode: 'folder', // 'file' or 'folder'
+                    totalBytes: null,
+                    fileCount: null,
+                    
+                    pieceSizeMode: 'auto', // 'auto' or 'manual'
+                    pieceSizeBytes: null,
+                    manualPieceSize: 262144, // 256 KiB default
+                    targetPieces: 2500,
+                    
+                    privateTorrent: true,
+                    startSeeding: false,
+                    ignoreShareRatio: false,
+                    
+                    optimizeAlignment: false,
+                    alignThresholdBytes: null,
+                    
+                    trackerUrls: '',
+                    webSeeds: '',
+                    comment: '',
+                    source: ''
+                }).as('torrentCreatorForm'),
+                
+                // UI State
+                ui: {
+                    showAdvanced: false,
+                    isScanning: false,
+                    isScanError: false,
+                    scanErrorMessage: null,
+                    isCalculating: false,
+                    isCreating: false,
+                    showFileBrowser: false,
+                    progressPhase: '',
+                    progressPercent: 0
+                },
+                
+                // File browser state
+                browser: {
+                    isOpen: false,
+                    currentPath: '/',
+                    parentPath: null,
+                    entries: [],
+                    loading: false,
+                    error: null,
+                    filter: '',
+                    history: ['/']
+                },
+                
+                // Computed Data
+                pieceCount: null,
+                efficiency: null,
+                
+                // Computed properties
+                get pieceSize() {
+                    if (this.form.pieceSizeBytes) {
+                        return Math.round(this.form.pieceSizeBytes / 1024); // Convert bytes to KB
+                    }
+                    return this.form.pieceSizeMode === 'manual' ? 
+                        Math.round(this.form.manualPieceSize / 1024) : null;
+                },
+                trackerValidation: [],
+                trackerTiers: [],
+                
+                // Computed Properties
+                get canCalculate() {
+                    return this.form.path && this.form.totalBytes > 0;
+                },
+                
+                get canCreate() {
+                    return this.canCalculate && 
+                           this.form.trackerUrls.trim() && 
+                           this.pieceCount !== null;
+                },
+                
+                // Calculate the number of pieces based on total size and piece size
+                getPieceCount() {
+                    if (!this.form.totalBytes) {
+                        return 0;
+                    }
+                    
+                    // Use pieceSize if available, otherwise use a default value
+                    const pieceSize = this.form.pieceSize || 256; // Default to 256 KB if not set
+                    
+                    // Convert piece size from KB to bytes
+                    const pieceSizeBytes = pieceSize * 1024;
+                    
+                    // Calculate and return the number of pieces
+                    return Math.ceil(this.form.totalBytes / pieceSizeBytes);
+                },
+                
+                // Utility function to format bytes
+                formatBytes(bytes) {
+                    if (!bytes) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                },
+                
+                // Debounce utility function
+                debounce(func, wait) {
+                    let timeout;
+                    return function executedFunction(...args) {
+                        const later = () => {
+                            clearTimeout(timeout);
+                            func.apply(this, args);
+                        };
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                    };
+                },
+                
+                debouncedScan: null, // Will be initialized in init()
+                
+                // Initialize the component
+                init() {
+                    // Initialize debounced scan function
+                    this.debouncedScan = this.debounce(async function() {
+                        await this.scanPath();
+                    }.bind(this), 1000);
+                    
+                    // Force browser closed
+                    this.browser.isOpen = false;
+                    this.browser.loading = false;
+                    this.ui.showFileBrowser = false;
+                },
+                
+                // Missing event handler functions
+                pathChanged() {
+                    // Only reset values, don't auto-scan
+                    this.form.totalBytes = null;
+                    this.form.fileCount = null;
+                },
+                
+                browseFile() {
+                    // Temporarily disabled - just set mode
+                    this.form.mode = 'file';
+                    alert('File browser temporarily disabled');
+                },
+                
+                browseFolder() {
+                    // Temporarily disabled - just set mode  
+                    this.form.mode = 'folder';
+                    alert('Folder browser temporarily disabled');
+                },
+                
+                cancelBrowse() {
+                    this.ui.showFileBrowser = false;
+                    this.browser.isOpen = false;
+                },
+                
+                selectCurrentDirectory() {
+                    // Use current browser path as selection
+                    this.form.path = this.browser.currentPath;
+                    this.browser.isOpen = false;
+                    this.ui.showFileBrowser = false;
+                    this.pathChanged();
+                },
+                
+                navigateUp() {
+                    if (!this.browser.currentPath || this.browser.currentPath === '/') return;
+                    const parent = this.browser.currentPath.replace(/\/+/g,'/').replace(/\/$/,'').split('/').slice(0,-1).join('/') || '/';
+                    this.navigateToPath(parent);
+                },
+                
+                navigateToPath(path) {
+                    if (!path) return;
+                    const normalized = path.replace(/\/+/g,'/').replace(/(?<!:)\/+/g,'/');
+                    this.browser.loading = true;
+                    this.browser.error = null;
+                    this.browser.currentPath = normalized;
+                    fetch('/api/qbittorrent/browse', {
+                        method: 'POST',
+                        headers: { 'Content-Type':'application/json' },
+                        body: JSON.stringify({ path: normalized })
+                    })
+                        .then(r=>{ if(!r.ok) throw new Error(r.status+' '+r.statusText); return r.json(); })
+                        .then(data=>{
+                            const entries = data.entries || data.files || [];
+                            this.browser.entries = Array.isArray(entries)? entries : [];
+                            this.browser.parentPath = data.parent_path || (normalized === '/'? null : normalized.split('/').slice(0,-1).join('/')||'/');
+                        })
+                        .catch(err=>{
+                            console.error('Browse error', err);
+                            this.browser.error = err.message;
+                            this.browser.entries = [];
+                        })
+                        .finally(()=>{ this.browser.loading = false; });
+                },
+                
+                selectEntry(entry) {
+                    if (!entry) return;
+                    // Detect directory heuristically
+                    const isDir = entry.is_directory || entry.is_dir || entry.type === 'dir' || (entry.name && entry.name.endsWith('/')) || entry.path?.endsWith('/') || false;
+                    const entryPath = entry.path || entry.file_path || (this.browser.currentPath.replace(/\/$/,'') + '/' + (entry.name || entry.filename));
+                    if (isDir && this.form.mode === 'folder') {
+                        // Navigate into directory
+                        this.navigateToPath(entryPath);
+                        return;
+                    }
+                    if (isDir && this.form.mode === 'file') {
+                        // Just navigate deeper in file mode
+                        this.navigateToPath(entryPath);
+                        return;
+                    }
+                    // It's a file
+                    if (this.form.mode === 'file') {
+                        this.form.path = entryPath;
+                        this.browser.isOpen = false;
+                        this.ui.showFileBrowser = false;
+                        this.pathChanged();
+                    }
+                },
+                
+                createTorrent() {
+                    this.ui.isCreating = true;
+                    // Creation logic here
+                },
+                
+                cancelCreation() {
+                    this.ui.isCreating = false;
+                },
+                
+                validateTrackers() {
+                    // Basic validation logic
+                    console.log('Validating trackers...');
+                },
+                
+                async scanPath() {
+                    if (!this.form.path) return;
+                    
+                    this.ui.isScanning = true;
+                    this.ui.isScanError = false;
+                    this.ui.scanErrorMessage = null;
+                    
+                    try {
+                        const response = await fetch('/api/qbittorrent/analyze', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                path: this.form.path,
+                                includeSize: true,
+                                recursive: true
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.form.totalBytes = data.totalBytes;
+                            this.form.fileCount = data.fileCount;
+                            this.form.mode = data.isDirectory ? 'folder' : 'file';
+                            
+                            // Show success notification
+                            if (window.$store && window.$store.notifications) {
+                                window.$store.notifications.success(
+                                    `Found ${this.formatBytes(data.totalBytes)} in ${data.fileCount} files`
+                                );
+                            }
+                        } else {
+                            const errorText = await response.text();
+                            throw new Error(`Scan failed: ${response.status} ${errorText}`);
+                        }
+                    } catch (error) {
+                        console.error('Error scanning path:', error);
+                        this.ui.isScanError = true;
+                        this.ui.scanErrorMessage = error.message;
+                        this.form.totalBytes = null;
+                        this.form.fileCount = null;
+                        
+                        if (window.$store && window.$store.notifications) {
+                            window.$store.notifications.error('Failed to scan path: ' + error.message);
+                        }
+                    } finally {
+                        this.ui.isScanning = false;
+                    }
+                },
+                
+                pieceSizeModeChanged() {
+                    // Reset piece calculation when mode changes
+                    this.pieceCount = null;
+                    this.efficiency = null;
+                    this.form.pieceSizeBytes = null;
+                },
+                
+                async calculatePieces() {
+                    if (!this.canCalculate) return;
+                    
+                    this.ui.isCalculating = true;
+                    try {
+                        const requestData = {
+                            path: this.form.path,
+                            targetPieces: this.form.targetPieces
+                        };
+                        
+                        // Add piece size for manual mode
+                        if (this.form.pieceSizeMode === 'manual') {
+                            requestData.pieceSizeBytes = parseInt(this.form.manualPieceSize);
+                        }
+                        
+                        const response = await fetch('/api/qbittorrent/calculate-pieces', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(requestData)
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.form.pieceSizeBytes = data.pieceSizeBytes;
+                            this.pieceCount = data.pieceCount;
+                            this.efficiency = Math.round(data.efficiency || 0);
+                            
+                            // Show success notification
+                            this.$store.notifications.success(
+                                `Calculated ${this.pieceCount} pieces of ${this.formatBytes(data.pieceSizeBytes)} each`
+                            );
+                        } else {
+                            console.error('Failed to calculate pieces:', await response.text());
+                            this.$store.notifications.error('Failed to calculate piece size');
+                        }
+                    } catch (error) {
+                        console.error('Error calculating pieces:', error);
+                        this.$store.notifications.error('Network error while calculating pieces');
+                    } finally {
+                        this.ui.isCalculating = false;
+                    }
+                },
+                
+                validateTrackers() {
+                    const lines = this.form.trackerUrls.split('\n');
+                    this.trackerValidation = [];
+                    this.trackerTiers = [];
+                    
+                    let currentTier = [];
+                    let lineNumber = 1;
+                    
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        
+                        if (trimmed === '') {
+                            // Empty line - start new tier
+                            if (currentTier.length > 0) {
+                                this.trackerTiers.push([...currentTier]);
+                                currentTier = [];
+                            }
+                        } else {
+                            // Validate URL
+                            const isValid = this.isValidTrackerUrl(trimmed);
+                            this.trackerValidation.push({
+                                line: lineNumber,
+                                valid: isValid,
+                                message: isValid ? 'Valid tracker URL' : 'Invalid URL format'
+                            });
+                            
+                            if (isValid) {
+                                currentTier.push(trimmed);
+                            }
+                        }
+                        
+                        lineNumber++;
+                    }
+                    
+                    // Add final tier
+                    if (currentTier.length > 0) {
+                        this.trackerTiers.push(currentTier);
+                    }
+                },
+                
+                isValidTrackerUrl(url) {
+                    try {
+                        const parsed = new URL(url);
+                        return ['http:', 'https:', 'udp:'].includes(parsed.protocol);
+                    } catch {
+                        return false;
+                    }
+                },
+                
+                browseFile() {
+                    this.form.mode = 'file';
+                    this.openFileBrowser();
+                },
+                
+                browseFolder() {
+                    this.form.mode = 'folder';
+                    this.openFileBrowser();
+                },
+                
+                async createTorrent() {
+                    if (!this.canCreate) return;
+                    
+                    this.ui.isCreating = true;
+                    this.ui.progressPhase = 'Initializing...';
+                    this.ui.progressPercent = 0;
+                    
+                    try {
+                        // PROTOTYPE LIMITATION: Actual torrent creation is not implemented.
+                        // This is a demo/prototype UI. Backend integration is required for real torrent creation.
+                        
+                        // Show user-facing message
+                        alert("This is a demo/prototype. Actual torrent creation is not implemented.");
+                        
+                        // Simulate progress for demonstration purposes only
+                        await this.simulateProgress();
+                        
+                        console.log('Torrent creation completed (simulated)!');
+                    } catch (error) {
+                        console.error('Error creating torrent:', error);
+                    } finally {
+                        this.ui.isCreating = false;
+                    }
+                },
+                
+                async simulateProgress() {
+                    const phases = [
+                        { name: 'Scanning files...', duration: 1000 },
+                        { name: 'Calculating pieces...', duration: 2000 },
+                        { name: 'Hashing content...', duration: 3000 },
+                        { name: 'Finalizing torrent...', duration: 1000 }
+                    ];
+                    
+                    let totalProgress = 0;
+                    const stepSize = 100 / phases.length;
+                    
+                    for (const phase of phases) {
+                        this.ui.progressPhase = phase.name;
+                        
+                        const steps = 20;
+                        const stepDuration = phase.duration / steps;
+                        
+                        for (let i = 0; i <= steps; i++) {
+                            this.ui.progressPercent = Math.round(totalProgress + (stepSize * i / steps));
+                            await this.sleep(stepDuration);
+                        }
+                        
+                        totalProgress += stepSize;
+                    }
+                },
+                
+                cancelCreation() {
+                    this.ui.isCreating = false;
+                    this.ui.progressPhase = '';
+                    this.ui.progressPercent = 0;
+                },
+                
+                // Utility Functions
+                formatBytes(bytes) {
+                    if (!bytes || bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                },
+                
+                debounce(func, wait) {
+                    let timeout;
+                    return function executedFunction(...args) {
+                        const later = () => {
+                            clearTimeout(timeout);
+                            func.apply(this, args);
+                        };
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                    };
+                },
+                
+                // (Removed duplicate init to prevent override)
+            }
+        }
+    </script>
+    
+    <!-- Load external Alpine.js component -->
+    <!-- Temporarily commented out to avoid conflicts -->
+    <!-- <script src="/static/js/torrent-creator.js"></script> -->
+</body>
+</html>

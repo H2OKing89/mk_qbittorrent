@@ -1,0 +1,106 @@
+/* Custom CSS for Torrent Creator */
+
+/* Animation for spinner */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+/* Smooth transitions for modals */
+.modal-backdrop {
+    transition: opacity 300ms ease-in-out;
+}
+
+.modal-content {
+    transition: transform 300ms ease-in-out, opacity 300ms ease-in-out;
+}
+
+/* Custom progress bar styles */
+.progress-bar {
+    transition: width 300ms ease-in-out;
+}
+
+/* Toast notification styles */
+.toast {
+    transition: all 300ms ease-in-out;
+}
+
+.toast-enter {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast-enter-active {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast-exit {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast-exit-active {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+/* qBittorrent-style button hover effects */
+.qbit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.qbit-btn:active {
+    transform: translateY(0);
+}
+
+/* File browser enhancements */
+.file-item:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid #3b82f6;
+}
+
+/* Custom scrollbar for dark theme */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #374151;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #6b7280;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Enhanced focus styles for accessibility */
+.focus-visible:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Loading skeleton animation */
+@keyframes skeleton-loading {
+    0% {
+        background-position: -200px 0;
+    }
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 37%, #374151 63%);
+    background-size: 400px 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+}

@@ -856,6 +856,74 @@ async def create_torrent_background_enhanced(
         active_jobs[job_id]["error"] = str(e)
 
 # =============================================================================
+# BASIC FILE BROWSING API
+# =============================================================================
+
+@app.get("/api/browse")
+async def browse_directory(path: str = "/"):
+    """Simple directory browsing for file selection"""
+    try:
+        import os
+        from pathlib import Path
+        
+        browse_path = Path(path)
+        
+        # Security check - ensure path is absolute and normalize it
+        if not browse_path.is_absolute():
+            browse_path = Path("/") / browse_path
+        
+        browse_path = browse_path.resolve()
+        
+        # Check if path exists and is directory
+        if not browse_path.exists():
+            raise HTTPException(status_code=404, detail="Directory not found")
+        
+        if not browse_path.is_dir():
+            raise HTTPException(status_code=400, detail="Path is not a directory")
+        
+        # List directory contents
+        files = []
+        try:
+            for item in sorted(browse_path.iterdir()):
+                try:
+                    if item.name.startswith('.'):
+                        continue  # Skip hidden files/folders
+                        
+                    is_dir = item.is_dir()
+                    size = 0
+                    if not is_dir and item.is_file():
+                        try:
+                            size = item.stat().st_size
+                        except (OSError, PermissionError):
+                            size = 0
+                    
+                    files.append({
+                        "name": item.name,
+                        "path": str(item),
+                        "is_directory": is_dir,
+                        "size": size,
+                        "type": "folder" if is_dir else "file"
+                    })
+                except (OSError, PermissionError):
+                    # Skip files we can't access
+                    continue
+                    
+        except PermissionError:
+            raise HTTPException(status_code=403, detail="Permission denied")
+        
+        return {
+            "path": str(browse_path),
+            "parent": str(browse_path.parent) if browse_path.parent != browse_path else None,
+            "files": files
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error browsing directory {path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# =============================================================================
 # NEW QBITTORRENT BROWSING API
 # =============================================================================
 
@@ -1046,6 +1114,11 @@ async def unified_scan_path(request: dict):
 async def root(request: Request):
     """Serve the main torrent creator UI"""
     return templates.TemplateResponse("torrent_creator.html", {"request": request})
+
+@app.get("/simple")
+async def simple_torrent_creator(request: Request):
+    """Serve the simple torrent creator UI (minimal, dependency-free)"""
+    return templates.TemplateResponse("simple_torrent_creator.html", {"request": request})
 
 @app.get("/creator")
 async def torrent_creator_ui(request: Request):

@@ -19,25 +19,25 @@ This document outlines the surgical migration from manual Docker path mapping to
 2. ✅ Validate qBittorrent API functionality **(COMPLETED: test_qbit_navigation.py)**
 3. ✅ Implement enhanced backend APIs **(COMPLETED: analyze + calculate-pieces)**
 4. ✅ Design frontend architecture using torrent creator spec **(COMPLETED: Working UI)**
-5. 🔄 **NEW: Setup professional package management** - npm + Vite.js build system
+5. 🔄 **NEW: Enhance CDN-based frontend** - Alpine.js plugins + Auto-Animate
 
 ### **This Week**
-1. 🚧 **Transform to modular architecture** following `WEB_ARCHITECTURE.md`
-2. 🚧 **Add Headless UI** for accessibility compliance  
-3. 🚧 **Implement Auto-Animate** for smooth transitions
-4. 🚧 **Add Zod validation** for robust form handling
-5. 🚧 **Setup development workflow** with hot reload and linting
+1. 🚧 **Add Alpine.js enhancements** - Persistence, animations, focus management
+2. 🚧 **Implement Auto-Animate** for smooth transitions
+3. 🚧 **Add Server-Sent Events** for real-time progress
+4. 🚧 **Create toast notification system** with pure Alpine.js
+5. 🚧 **Extract JavaScript** to separate files for better organization
 
 ### **Next Week**
-1. 🔲 **Socket.IO real-time progress** - Live torrent creation updates
-2. 🔲 **Chart.js progress visualization** - Visual efficiency and progress charts
-3. 🔲 **Uppy file management** - Drag & drop file selection
-4. 🔲 **Lottie animations** - Professional loading states
+1. 🔲 **Enhanced file browser modal** - Better navigation UX
+2. 🔲 **Progress visualization** - Custom CSS progress bars
+3. 🔲 **Form persistence** - Auto-save user preferences
+4. 🔲 **Drag & drop tracker management** - SortableJS integration
 
 ### **This Month**
-1. 🔲 **Complete professional architecture** transformation
-2. 🔲 **Add comprehensive testing** (unit + E2E with Cypress)
-3. 🔲 **Performance optimization** and bundle analysis
+1. 🔲 **Complete UI polish** - Professional animations and interactions
+2. 🔲 **Add comprehensive validation** - Client and server-side
+3. 🔲 **Performance optimization** - Lazy loading and caching
 4. 🔲 **User testing and feedback** collection
 5. 🔲 **Documentation and deployment** guidesh discovery with qBittorrent's perspective
 
